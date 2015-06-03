@@ -1,0 +1,3 @@
+[submodule "test/repo1"]
+	path = test/repo1
+	url = /Users/pauljohnson/Programming/test_repos/repo1

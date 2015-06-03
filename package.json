@@ -1,0 +1,15 @@
+{
+  "name": "git_runtime",
+  "version": "0.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "BSD-2-Clause",
+  "devDependencies": {
+    "mocha": "~2.2.5",
+    "chai": "~2.3.0"
+  }
+}

@@ -1,16 +1,64 @@
-/*
- * test.js
- * Copyright (C) 2015 pauljohnson <pauljohnson@Paul-Johnsons-MacBook-Pro.local>
- *
- * Distributed under terms of the MIT license.
- */
+var chai = require("chai");
+chai.should();
+var chaiAsPromised = require("chai-as-promised");
+chai.use(chaiAsPromised);
 
-var expect = require('chai').expect;
-var child_process = require('child_process');
+var path = require("path");
+var fs = require("q-io/fs");
+var structure = require("../lib/structure");
 
-console.log(process.cwd());
+var test_repo_path = "/Users/pauljohnson/Programming/test_repos/repo1"
 
-describe('Versioned file structure', function() {
+describe('Test splitting', function() {
+    it('should split the given path into repo and code path', function() {
+        var response = structure.find_repo_path(
+                path.join(test_repo_path, "lib"));
+
+        return response.should.eventually.deep.equal([test_repo_path, "lib"]);
+    });
+});
+
+describe('Test adding commit to structure', function() {
+    beforeEach(function() {
+        return fs.exists(path.join(test_repo_path, ".gitruntime"), function(){
+            if (exists) {
+                return fs.unlink(path.join(test_repo_path, ".gitruntime"));
+            }
+        });
+    });
+
+    describe('Add commit', function() {
+        //it('should add commit by branch', function() {
+            //var response = structure.add_commit("other",
+                               //path.join(test_repo_path, "lib"));
+
+            //response.should.be.fullfilled();
+
+        //});
+
+        //it('should add commit by HEAD reference', function() {
+            //assert.fail();
+        //});
+
+        //it('should add commit by id', function() {
+            //assert.fail();
+        //});
+
+        //it('should return error on invalid id', function() {
+            //assert.fail();
+        //});
+    });
+//    describe('Delete commit', function() {
+//        it('should delete a commit by id', function() {
+//        });
+//    });
+//    describe('List commits', function() {
+//        it('should list all installed commits', function() {
+//        });
+//    });
+});
+
+describe('Test CLI', function() {
     before(function() {
     });
 
@@ -71,5 +119,3 @@ describe('Versioned file structure', function() {
 //        });
 //    });
 });
-
-

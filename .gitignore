@@ -2,3 +2,4 @@ node_modules
 *.un~
 *.swp~
 *.swp
+npm-debug.log

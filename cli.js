@@ -4,6 +4,7 @@ var fs = require('fs');
 var jsonfile = require('jsonfile');
 var structure = require('./lib/structure');
 var proxy = require('./lib/proxy');
+var ppm2 = require('./lib/ppm2.js');
 
 program
     .command('add <reference> <repo_path>')
@@ -14,11 +15,11 @@ program
     });
 
 program
-    .command('proxy <target_server> <port> <process_file>')
+    .command('proxy <target_server> <target_port> <port> <process_file>')
     //.option("-t, --thing", "Another option", 1234)
-    .action(function(target, port, process_file, opts){
+    .action(function(target, target_port, port, process_file, opts){
         var process_def = jsonfile.readFileSync(process_file);
-        proxy.star_proxy(target, port, process_def);
+        proxy.start_proxy(target, target_port, port, process_def);
     });
 
 program.parse(process.argv);

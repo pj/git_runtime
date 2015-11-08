@@ -1,0 +1,16 @@
+{
+  "apps" : [{
+    "name"        : "git-runtime-proxy",
+    "script"      : "/Users/pauljohnson/Programming/git_runtime/lib/proxy_script.js",
+    "cwd"         : "/Users/pauljohnson/Programming/git_runtime",
+    "args"        : [],
+    "node_args"   : "--harmony",
+    "merge_logs"  : true,
+    "env"         : {
+        "PROXY_PORT": 4000,
+        "TARGET": "http://localhost",
+        "TARGET_PORT": 3000,
+        "PROCESS_DEF": "/Users/pauljohnson/Programming/test_git_runtime_server/processes.json"
+    }
+  }]
+}

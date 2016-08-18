@@ -27,18 +27,20 @@
   "scripts": {
     "test": "mocha --harmony",
     "test:stop": "mocha -G -b --harmony",
-    "test:watch": "mocha -G -b -w --harmony"
+    "test:watch": "mocha -G -b -w --harmony",
+    "test:ts": "mocha --compilers ts:ts-node/register,tsx:ts-node/register"
   },
   "devDependencies": {
-    "chai": "~2.3.0",
+    "chai": "~3.5.0",
     "chai-as-promised": "^5.1.0",
     "child-process-promise": "^2.1.2",
-    "mocha": "~2.2.5",
+    "mocha": "~3.0.2",
     "ps-node": "^0.1.2",
     "request": "^2.65.0",
     "rimraf": "^2.5.4",
-    "supertest": "^1.1.0",
-    "supertest-as-promised": "^4.0.0"
+    "supertest": "^2.0.0",
+    "supertest-as-promised": "^4.0.0",
+    "tmp": "0.0.28"
   },
   "dependencies": {
     "body-parser": "^1.15.2",
@@ -48,18 +50,20 @@
     "cookie-parser": "^1.4.3",
     "express": "^4.14.0",
     "express-session": "^1.14.0",
-    "fs-extra": "^0.24.0",
+    "fs-extra": "^0.30.0",
     "http-proxy": "^1.11.3",
     "jsonfile": "^2.2.3",
     "kexec": "^2.0.2",
     "node-http-proxy": "^0.2.3",
-    "nodegit": "^0.5.0",
+    "nodegit": "^0.14.1",
     "nomnom": "^1.8.1",
-    "pm2": "^0.15.7",
+    "pm2": "^1.1.3",
     "portfinder": "^1.0.7",
     "promised-exec": "^1.0.1",
     "q": "^1.4.1",
     "q-io": "^1.13.1",
+    "ts-node": "^1.2.3",
+    "typescript": "^1.8.10",
     "underscore": "^1.8.3"
   }
 }

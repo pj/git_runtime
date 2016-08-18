@@ -49,3 +49,48 @@
 ////        });
 ////    });
 //});
+
+//function delete_untracked(repo) {
+    //var statusOpts = git.StatusOptions();
+    //statusOpts.show = git.Status.SHOW.INDEX_AND_WORKDIR;
+    //statusOpts.flags = git.Status.OPT.INCLUDE_UNTRACKED;
+    //return git.StatusList.create(repo, opts))
+        //.then(function (statusList) {
+            //var paths = statusList.map(status => status.indexToWorkdir.newFile.path());
+            //return q.all(paths.map(path => fs.unlink(path)));
+        //});
+
+//}
+
+//function deploy(deploy_path, treeish) {
+    //var source_repo_path = path.resolve(deploy_path, repo_path);
+    //var clone_path = path.resolve(deploy_path, "commits", treeish);
+
+    //return fs.stat(clone_path)
+        //// if clone already exists then clean and fast forward.
+        //.then(result =>{
+            //if (result.isDirectory()) {
+                //git.Repository.open(clone_path)
+                    //.then(function (repo){
+                        //// reset repo
+                        //return git.Reset.reset(repo, "HEAD", git.Reset.TYPE.HARD)
+                            //// clean repo
+                            //.then(_ => delete_untracked(repo));
+                            //// checkout head
+                            //.then(_ => repo.fetchAll({}));
+                            ////.then(_ => repo.mergeBranches("master", "origin/master");)
+                            //.then(_ => standard_deploy());
+                    //})
+
+            //} else {
+                //throw new Error("Clone path " + clone_path + " is not a directory");
+            //}
+        //})
+        //// clone repo since it doesn't exist.
+        //.fail((err) => {
+            //return git.Clone(source_repo_path, clone_path)
+                //.then(repository => git.Checkout(repository, treeish))
+                //.then(_ => standard_deploy()));
+        //});
+//}
+

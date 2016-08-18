@@ -1,47 +1,52 @@
 var chai = require("chai");
 chai.should();
 var assert = chai.assert;
+var expect = chai.expect;
 var chaiAsPromised = require("chai-as-promised");
 chai.use(chaiAsPromised);
 
 var q = require("q");
 var ppm2 = require("../lib/ppm2");
 var proxy = require('../lib/proxy');
+var deploy = require('../lib/deploy');
 var init = require('../lib/init');
+var utils = require('../lib/utils');
 var path = require('path');
 
 var fse = require('../lib/fs-extra');
+var fs = require("q-io/fs");
 
-describe("Initialise and install new deployment.", function () {
+function test_in_tmp_deployment(test_callback) {
+    var test_repo_path = "/Users/pauljohnson/Programming/git_runtime/lazy_cloud_test_repo";
+    return utils.tmp.dirAsync({unsafeCleanup: true})
+        .spread(function (tmp_path, cleanupCallback) {
+            process.chdir(tmp_path);
+            return init.init_deployment(test_repo_path)
+                .then(_ => test_callback(tmp_path))
+                .then(_ => cleanupCallback());
+    });
+}
+
+describe("Initialise and install blank deployment.", function () {
     it("initialise a deployment with an empty directory", function () {
-        var test_path = path.resolve(__dirname,
-                "lazy_cloud_deployment_test");
-        var test_repo_path = "/Users/pauljohnson/Programming/git_runtime/lazy_cloud_test_repo";
-        process.chdir(test_path);
-        // delete existing path.
-        return fse.emptyDir(test_path)
-            .then(_ => init.init_deployment(test_repo_path))
-            .then(_ => fs.stat(path.resolve(test_path, 'lazycloud.json')))
-            .then(stat => stat.isFile().should.be(true));
+        return test_in_tmp_deployment(function (tmp_path) {
+            return fs.stat(path.resolve(tmp_path, 'lazycloud.json'))
+                    .then(stat => expect(stat.isFile()).to.equal(true));
+        });
     });
 });
 
-//describe("Deploy and update commits.", function () {
-    //// Create test environmentrepository.mergeBranches("master", "origin/master");
-    //before(function () {
-        //var test_path = path.resolve(__dirname,
-                //"../../lazy_cloud_deployment_test");
-        //var lazy_cloud_test_config = path.resolve(__dirname,
-                //"lazycloud.json");
-        //// delete existing path.
-        //return fse.emptyDir(test_path)
-                    //.then(_ => fse.copy(lazy_cloud_test_config, test_path));
-    //});
-
-    //it("deploy basic checkout", function () {
-
-    //});
-//});
+describe("Deploy, update and start commits.", function () {
+    it("deploy basic checkout", function () {
+        return test_in_tmp_deployment(function (tmp_path) {
+            return deploy.deploy(tmp_path, 'basic')
+                .then(_ => {
+                    return fs.stat(path.resolve(tmp_path, 'commits', 'basic', 'package.json'))
+                        .then(stat => expect(stat.isFile()).to.equal(true))}
+               );
+        });
+    });
+});
 
 //function check_ppm2_has_process_name(name){
     //return ppm2.connect()

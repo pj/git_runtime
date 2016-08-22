@@ -48,6 +48,7 @@
     "commander": "^2.9.0",
     "consolidate": "^0.14.1",
     "cookie-parser": "^1.4.3",
+    "diff": "^2.2.3",
     "express": "^4.14.0",
     "express-session": "^1.14.0",
     "fs-extra": "^0.30.0",
@@ -62,6 +63,7 @@
     "promised-exec": "^1.0.1",
     "q": "^1.4.1",
     "q-io": "^1.13.1",
+    "simple-git": "^1.47.0",
     "ts-node": "^1.2.3",
     "typescript": "^1.8.10",
     "underscore": "^1.8.3"

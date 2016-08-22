@@ -94,3 +94,137 @@
         //});
 //}
 
+
+
+class git_commit {
+    constructor(files, message, next, branches) {
+        this.files = files;
+        this.message = message;
+        this.next = next;
+        this.branches = branches;
+    }
+
+    advance(branch=null) {
+        if (branch === null) {
+            return this.next;
+        } else {
+            return this.branches[branch];
+        }
+    }
+}
+
+async function write_commit(commit) {
+    // write files
+    Object.keys(commit.files)
+        .forEach(function (path) {
+            let file = commit.files[path];
+            // if it's a patch apply the patch
+            if (file) {
+                // otherwise patch and write out to file.
+                await fs.writeFile(path, file);
+            } else {
+                // otherwise patch and write out to file.
+                await fs.writeFile(path, );
+
+            }
+
+        });
+
+    // commit with message
+    await utils.exec(`git commit -m "${commit.message}"`);
+
+    return commit;
+}
+
+/// <reference path="../typings/index.d.ts" />
+var chai = require("chai");
+chai.should();
+var assert = chai.assert;
+var expect = chai.expect;
+var chaiAsPromised = require("chai-as-promised");
+chai.use(chaiAsPromised);
+
+var q = require("q");
+var ppm2 = require("../lib/ppm2");
+var proxy = require('../lib/proxy');
+var deploy = require('../lib/deploy');
+var init = require('../lib/init');
+var utils = require('../lib/utils');
+var path = require('path');
+
+var fse = require('../lib/fs-extra');
+var fs = require("q-io/fs");
+var diff = require("diff");
+
+const package_json = `{
+    "name": "lazycloud_test",
+    "version": "1.0.0",
+    "description": "Test repo for lazycloud",
+    "main": "index.js",
+    "scripts": {}
+}`
+
+const index_js = `{
+var http = require('http');
+
+var server = http.createServer(function (request, response) {
+    response.end("Hello world!");
+});
+
+server.listen(port, function (err) {
+    if (err) {
+            return console.log('something bad happened', err);
+        }
+
+    console.log("server is listening on " + port);
+});`
+
+async function write_commit(commit) {
+    let [message, files] = commit;
+    await Promise.all(Object.keys(files)
+                        .map(path => fs.write(path, files[path])));
+    // commit with message
+    await utils.exec(`git add --all`);
+    await utils.exec(`git commit -m "${message}"`);
+    let commit_id = await utils.exec(`git rev-parse HEAD`);
+    return commit_id;
+}
+
+async function check_directory(base_path, file) {
+    let stat = await fs.stat(path.resolve(base_path, '.git'));
+    expect(stat.isDirectory()).to.equal(true);
+}
+
+function* commiterator(...commits){
+    for (let commit of commits) {
+        yield commit;
+    }
+}
+
+describe("Create and update a git repo", function () {
+    it("create and update a git repo", async function () {
+        let [tmp_path, cleanupCallback] = await utils.tmp.dirAsync({unsafeCleanup: true});
+        process.chdir(tmp_path);
+
+        await utils.exec("git init");
+        await check_directory(tmp_path, '.git');
+
+        let commits = commiterator (
+            ["initial commit", { 'package.json': package_json,
+                                 'index.js': index_js }],
+            ["another commit", { 'package.json': package_json.replace('"scripts": {}', `scripts: {\n'lazy_cloud:postdeploy': 'touch blah.blah'\n    }`)}]
+        )
+        await utils.exec('git checkout -b basic');
+
+        await write_commit(commits.next().value);
+
+        await check_directory(tmp_path, 'package.json');
+        await check_directory(tmp_path, 'index.js');
+
+        await write_commit(commits.next().value);
+
+        await check_directory(tmp_path, 'blah.blah');
+
+        cleanupCallback();
+    });
+});

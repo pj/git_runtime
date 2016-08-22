@@ -1,0 +1,25 @@
+<!doctype html>
+
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+
+        <title>Deploying commit</title>
+        <meta name="description" content="Deploying commit in process">
+        <meta name="author" content="LazyCloud">
+        <script src="https://code.jquery.com/jquery-3.1.0.min.js"
+                integrity="sha256-cCueBR6CsyA4/9szpPfrX3s49M9vUU5BgtiJj06wt/s=" crossorigin="anonymous"></script>
+    </head>
+
+    <body>
+        <script type="text/javascript">
+setInterval(function (){
+    $.ajax('/lazy_cloud_admin/deployment/{{ deploy_id }}')
+        .done(function (data) {
+        })
+        .fail(function( jqXHR, textStatus, errorThrown ) {
+        });
+}, 500);
+        </script>
+    </body>
+</html>

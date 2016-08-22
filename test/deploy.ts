@@ -113,7 +113,7 @@ describe("Deploy, update and start commits.", function () {
                 await execIn(deploy_repo_path, 'git pull');
 
                 // deploy basic branch.
-                await deploy.deploy();
+                await deploy.deploy(tmp_deploy_path, 'master');
 
                 // check code exists
                 await check_directory(path.resolve(tmp_deploy_path, 'commits', 'master'), 'package.json');

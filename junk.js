@@ -308,3 +308,30 @@ describe("Create and update a git repo", function () {
     //start_process_server: start_process_server
 //};
 
+
+//describe("Create and update a git repo", function () {
+    //it("create and update a git repo", async function () {
+        //let [tmp_path, cleanupCallback] = await utils.tmp.dirAsync({unsafeCleanup: true});
+        //process.chdir(tmp_path);
+
+        //await utils.exec("git init");
+        //await check_directory(tmp_path, '.git');
+
+        //let commits = commiterator (
+            //["initial commit", { 'package.json': package_json,
+                                 //'index.js': index_js }],
+            //["another commit", { 'package.json': package_json.replace('"scripts": {}', `scripts: {\n'lazy_cloud:postdeploy': 'touch blah.blah'\n    }`)}]
+        //)
+
+        //await write_commit(commits.next().value);
+
+        //await check_directory(tmp_path, 'package.json');
+        //await check_directory(tmp_path, 'index.js');
+
+        //await write_commit(commits.next().value);
+
+        //await check_directory(tmp_path, 'blah.blah');
+
+        //cleanupCallback();
+    //});
+//});

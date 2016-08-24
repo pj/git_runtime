@@ -4,3 +4,4 @@ typings
 *.swp~
 *.swp
 npm-debug.log
+dist

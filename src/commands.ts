@@ -1,11 +1,11 @@
-var program = require('commander'),
-    proxy = require('./proxy.js'),
-    fs = require("q-io/fs"),
-    path = require("path"),
-    fsn = require('fs'),
-    q = require("q"),
-    jsonfile = require("jsonfile"),
-    utils = require("./utils");
+import program = require('commander');
+import proxy = require('./proxy');
+import fs = require("q-io/fs");
+import path = require("path");
+import fsn = require('fs');
+import q = require("q");
+import jsonfile = require("jsonfile");
+import utils = require("./utils");
 
 var readJSON = q.denodeify(jsonfile.readFile);
 

@@ -37,17 +37,18 @@
     "definition": "index.d.ts"
   },
   "devDependencies": {
+    "@lib/autodts-generator": "~0.0.1",
     "chai": "~3.5.0",
     "chai-as-promised": "^5.1.0",
     "child-process-promise": "^2.1.2",
+    "glob-fs": "^0.1.6",
     "mocha": "~3.0.2",
     "ps-node": "^0.1.2",
     "request": "^2.65.0",
     "rimraf": "^2.5.4",
     "supertest": "^2.0.0",
     "supertest-as-promised": "^4.0.0",
-    "tmp": "0.0.28",
-    "@lib/autodts-generator": "~0.0.1"
+    "tmp": "0.0.28"
   },
   "dependencies": {
     "autodts": "0.0.6",

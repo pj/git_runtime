@@ -1,41 +1,40 @@
 /**
   * @file Starts and stops the lazy cloud proxy process.
   */
-var structure = require('./structure');
-var ppm2 = require('./ppm2.js');
-var path = require('path');
+import * as ppm2 from './ppm2';
+import * as path from 'path';
 
 function create_process_def(name, deployment_path, port, production_port, base_hostname) {
     return {
         "apps" : [{
             "name"        : name,
-            "script"      : path.resolve(__dirname, 'start_server.js'),
+            "script"      : "/usr/local/lib/node_modules/ts-node/dist/bin.js ",// + path.resolve(__dirname, 'start_server.ts'),
             "args"        : [deployment_path, port, production_port, base_hostname],
-            "node_args"   : "--harmony",
+            "cwd"         : deployment_path,
+            //"interpreter" : "/usr/local/lib/node_modules/ts-node/dist/bin.js"
+            //"interpreter" : "/usr/local/bin/ts\-node"
+            "interpreter" : ""
         }]
     };
 }
 
-function start_proxy_process(name, deployment_path, port, production_port, base_hostname) {
-    return ppm2
-        .connect()
-        .then((proc) => ppm2.start(create_process_def(name, deployment_path, port, production_port, base_hostname)));
+export async function start_proxy_process(name, deployment_path, port,
+                                    production_port, base_hostname) {
+    await ppm2.connect();
+    await ppm2.start(create_process_def(name, deployment_path, port,
+                                        production_port, base_hostname));
 }
 
-function restart_proxy_process(name, deployment_path, port, production_port, base_hostname) {
-    return ppm2.connect()
-        .then((_) => ppm2.stop(name))
-        .then((proc) => ppm2.start(create_process_def(name, deployment_path, port, production_port, base_hostname)));
+export async function restart_proxy_process(name, deployment_path, port,
+                                      production_port, base_hostname) {
+    await ppm2.connect();
+    await ppm2.stop(name);
+    await ppm2.start(create_process_def(name, deployment_path, port,
+                                        production_port, base_hostname));
 }
 
-function stop_proxy_process(name) {
-    return ppm2.connect()
-        .then((_) => ppm2.stop(name))
-        .then((_) => ppm2.delete(name));
+export async function stop_proxy_process(name) {
+    await ppm2.connect();
+    await ppm2.stop(name);
+    await ppm2.deleteProcess(name);
 }
-
-module.exports = {
-    start_proxy_process: start_proxy_process,
-    restart_proxy_process: restart_proxy_process,
-    stop_proxy_process: stop_proxy_process
-};

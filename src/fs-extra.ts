@@ -1,7 +1,5 @@
-var fse = require('fs-extra');
-var q = require('q');
+import * as fse from 'fs-extra';
+import * as q from 'q';
 
-module.exports = {
-    emptyDir: q.denodeify(fse.emptyDir),
-    writeJSON: q.denodeify(fse.writeJSON)
-}
+export const emptyDir = q.denodeify(fse.emptyDir);
+export const writeJSON = q.denodeify(fse.writeJSON);

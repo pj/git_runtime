@@ -1,7 +1,7 @@
 // Requiring this file at the top of a script will cause a different version to
-// be run if GIT_RUNTIME is set.
-var kexec = require("kexec");
-var structure = require("./structure.js");
+// be run if GIT_RUNTIME is set.import var kexec from 'kexec';
+import var structure from './structure.js';
+
 
 if (process.env["GIT_RUNTIME"] && !process.env["IN_GIT_RUNTIME"]) {
     var repo_path = structure.find_repo_path();

@@ -1,22 +1,24 @@
+/// <reference path="../typings/index.d.ts" />
+/// <reference path="../typings/auto.d.ts" />
+/// <reference path="manual.d.ts" />
 /**
   * @file Deployment related functions
   */
-var git = require("nodegit"),
-    _ = require("underscore"),
-    path = require("path"),
-    fs = require("q-io/fs"),
-    fse = require("fs-extra"),
-    fsn = require("fs"),
-    q = require("q"),
-    jsonfile = require("jsonfile"),
-    utils = require("./utils"),
-    ppm2 = require("./ppm2"),
-    EventEmitter = require('events'),
-    mkdirp = q.nfbind(fse.mkdirp);
+import * as path from 'path';
+import * as fs from 'q-io/fs';
+import * as fse from 'fs-extra';
+import * as fsn from 'fs';
+import * as q from 'q';
+import * as jsonfile from 'jsonfile';
+import * as utils from './utils';
+import * as ppm2 from './ppm2';
+import * as EventEmitter from 'events';
+
+const mkdirp = q.nfbind(fse.mkdirp);
 
 var readJSON = q.denodeify(jsonfile.readFile);
 
-function execIf(pred, command) {
+function execIf(pred, command): any {
     if (pred) {
         return utils.exec(command);
     } else {
@@ -40,7 +42,7 @@ function create_process_def(commit_id, port) {
 
 async function commit_is_running(commit_id) {
     await ppm2.connect();
-    let list = await ppm2.list();
+    let list: any = await ppm2.list();
     var found = list.filter((item) => item.name.indexOf(commit_id) != -1);
 
     if (found.length === 0) {
@@ -102,7 +104,7 @@ async function deploy_new_commit(source_repo_path, clone_path, treeish) {
     } else {
         await utils.exec("git checkout -b " + treeish);
     }
-    let new_port = await utils.portfinder.getPortAsync();
+    let new_port = await utils.getPortAsync();
     // standard deploy
     await standard_deploy(clone_path, treeish, new_port);
 }
@@ -117,7 +119,7 @@ async function deploy_process_running(myEmitter, ppm2_process, clone_path, treei
     } else {
         // stop current process.
         await ppm2.connect();
-        await ppm2.delete(ppm2_process.name);
+        await ppm2.deleteProcess(ppm2_process.name);
         // reset and pull
         await reset_and_pull_repo(clone_path);
         await standard_deploy(clone_path, treeish,
@@ -137,14 +139,14 @@ async function deploy_process_not_running(myEmitter, clone_path, treeish) {
         await utils.exec("git checkout -b " + treeish);
     }
     // standard deploy
-    let new_port = await utils.portfinder.getPortAsync();
+    let new_port = await utils.getPortAsync();
     await standard_deploy(clone_path, treeish, new_port);
 }
 
 // Returns an event emitter, since I want to decouple this from the
 // queue/updating sqlite.
-function deploy_commit(deploy_path, treeish) {
-    var myEmitter = new EventEmitter();
+export function deploy_commit(deploy_path, treeish) {
+    var myEmitter = new (EventEmitter as any)();
     var source_repo_path = path.resolve(deploy_path, 'repo');
     var clone_path = path.resolve(deploy_path, "commits", treeish);
     myEmitter.emit('start', source_repo_path, clone_path, treeish);
@@ -177,8 +179,4 @@ function deploy_commit(deploy_path, treeish) {
         }
     });
     return myEmitter;
-}
-
-module.exports = {
-    deploy: deploy_commit
 }

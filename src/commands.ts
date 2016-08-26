@@ -1,11 +1,11 @@
-import program = require('commander');
-import proxy = require('./proxy');
-import fs = require("q-io/fs");
-import path = require("path");
-import fsn = require('fs');
-import q = require("q");
-import jsonfile = require("jsonfile");
-import utils = require("./utils");
+import * as program from 'commander';
+import {start_proxy_process, restart_proxy_process, stop_proxy_process} from './proxy';
+import * as fs from 'q-io/fs';
+import * as path from 'path';
+import * as fsn from 'fs';
+import * as q from 'q';
+import * as jsonfile from 'jsonfile';
+import * as utils from './utils';
 
 var readJSON = q.denodeify(jsonfile.readFile);
 
@@ -25,7 +25,7 @@ function get_config_option(default_value, opts, config_file, cmd_option_name, co
     return opt;
 }
 
-function get_config_opts(deployment_path, opts){
+function get_config_opts(deployment_path, opts) {
     if (!deployment_path) {
         deployment_path = process.cwd();
     }
@@ -39,7 +39,7 @@ function get_config_opts(deployment_path, opts){
             }
         })
         .then(function (config_file){
-            var config_opts = {};
+            var config_opts: any = {};
             config_opts.proxy_port = get_config_option(DEFAULT_PROXY_PORT, opts, config_file,
                 'port', 'proxy_port');
             config_opts.production_port = get_config_option(DEFAULT_PRODUCTION_PORT, opts, config_file,
@@ -65,7 +65,7 @@ program
     .action(function(deployment_path, opts){
         get_config_opts(deployment_path, opts)
             .then(function (config_opts) {
-                proxy.start_proxy_process(
+                start_proxy_process(
                     config_opts.proxy_name,
                     config_opts.deployment_path,
                     config_opts.proxy_port,
@@ -86,7 +86,7 @@ program
     .action(function(deployment_path, opts){
         get_config_opts(deployment_path, opts)
             .then(function (config_opts) {
-                proxy.restart_proxy_process(
+                restart_proxy_process(
                     config_opts.proxy_name,
                     config_opts.deployment_path,
                     config_opts.proxy_port,
@@ -105,7 +105,7 @@ program
     .action(function(deployment_path, opts){
         get_config_opts(deployment_path, opts)
             .then(function (config_opts) {
-                proxy.stop_proxy_process(config_opts.proxy_name);
+                stop_proxy_process(config_opts.proxy_name);
             })
             .catch(function (err) {
                 console.log(err);
@@ -119,4 +119,4 @@ program
     .action(function(opts){
     });
 
-modules.exports = program;
+export default program;

@@ -3,7 +3,8 @@
         "declaration": true,
         "outDir": "dist",
         "target": "ES6",
-        "module": "commonjs"
+        "module": "commonjs",
+        "moduleResolution": "classic"
     },
     "files": [
         "src/lazycloudd.ts"

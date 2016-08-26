@@ -1,5 +1,6 @@
-var q = require("q");
-var request = require("request");
+import q from 'q';
+import var request from 'request';
+
 
 function wait_for_response(host){
     var deferred = q.defer();

@@ -1,12 +1,24 @@
-var pm2 = require("pm2");
-var q = require("q");
+/// <reference path="../typings/index.d.ts" />
+/// <reference path="../typings/auto.d.ts" />
+/// <reference path="manual.d.ts" />
+import * as pm2 from 'pm2';
+import * as denodeify from 'denodeify';
 
-module.exports = {
-    connect: q.denodeify(pm2.connect),
-    disconnect: q.denodeify(pm2.disconnect),
-    list: q.denodeify(pm2.list),
-    start: q.denodeify(pm2.start),
-    stop: q.denodeify(pm2.stop),
-    delete: q.denodeify(pm2.delete),
-    killDaemon: q.denodeify(pm2.killDaemon)
-};
+export const connect = denodeify(pm2.connect);
+
+export const disconnect: any = denodeify(pm2.disconnect);
+export const list: any = denodeify(pm2.list);
+export const start: any  = denodeify(pm2.start);
+//export function start(process_def: any) {
+    //return new Promise(function (resolve, reject) {
+        //pm2.start(process_def, function (err) {
+            //console.log(err);
+            //if (err) reject(err);
+            //resolve();
+        //});
+    //});
+//}
+
+export const stop: any = denodeify(pm2.stop);
+export const deleteProcess: any = denodeify((pm2 as any).delete);
+export const killDaemon: any = denodeify(pm2.killDaemon);

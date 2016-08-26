@@ -1,14 +1,13 @@
 /**
   * @file Functions for creating processes for a commit id.
   */
-var express = require('express'),
-    httpProxy = require('http-proxy'),
-    nunjucks = require('nunjucks'),
-    q = require("q"),
-    structure = require("./structure"),
-    utils = require("./utils"),
-    deploy = require("./deploy"),
-    admin = require('./admin');
+import * as q from 'q';
+import * as express from 'express';
+import * as httpProxy from 'http-proxy';
+import * as nunjucks from 'nunjucks';
+import * as utils from './utils';
+import {deploy_commit} from './deploy';
+import * as admin from './admin';
 
 function get_commit_id(req, base_hostname) {
     var hostname = req.headers.host.split(':')[0];
@@ -32,7 +31,7 @@ function get_commit_id(req, base_hostname) {
     }
 }
 
-function start_lazycloud_server(deploy_path, server_port, production_port, base_hostname) {
+export default function start_lazycloud_server(deploy_path, server_port, production_port, base_hostname) {
     var app = express();
 
     // Template config.
@@ -58,7 +57,7 @@ function start_lazycloud_server(deploy_path, server_port, production_port, base_
         if (commit_id !== null){
             // quick check here to see if we are already deployed and running
             // and code is up to date.
-            deploy.deploy(deploy_path, commit_id)
+            deploy_commit(deploy_path, commit_id)
                 .then((port) =>{
                     proxy.web(req, res, {target: 'localhost:' + port});
                 });
@@ -73,7 +72,3 @@ function start_lazycloud_server(deploy_path, server_port, production_port, base_
         server.on('listening', _ => resolve(server));
     });
 }
-
-module.exports = {
-    start_lazycloud_server: start_lazycloud_server
-};

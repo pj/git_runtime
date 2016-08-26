@@ -1,9 +1,13 @@
-var q = require("q"),
-    child_process = require("child_process");
+import * as q from 'q';
+import * as child_process from 'child_process';
 
-function exec(command){
+export function exec(command: string, options=null){
     var deferred = q.defer();
-    var proc = child_process.exec(command);
+    if (options) {
+        var proc = child_process.exec(command, options);
+    } else {
+        var proc = child_process.exec(command);
+    }
 
     var stdout_data = [];
     var stderr_data = [];
@@ -47,7 +51,7 @@ function exec(command){
     return deferred.promise;
 }
 
-function execPred(command){
+export function execPred(command: string){
     var deferred = q.defer();
     var proc = child_process.exec(command);
 
@@ -92,7 +96,7 @@ function execPred(command){
   * apply denodeify to a module, producing a new module containing methods
   * with 'Async' appended.
   */
-function denodeifyAll(o) {
+export function denodeifyAll(o) {
     var new_module = {}
     Object.keys(o)
         .filter(m => typeof o[m] === 'function')
@@ -102,13 +106,5 @@ function denodeifyAll(o) {
 }
 
 // Various promiseified modules
-var tmp = denodeifyAll(require("tmp"));
-var portfinder = denodeifyAll(require("portfinder"));
-
-module.exports = {
-    exec: exec,
-    execPred: execPred,
-    denodeifyAll: denodeifyAll,
-    tmp: tmp,
-    portfinder: portfinder
-}
+export const tmp:any = denodeifyAll(require("tmp"));
+export var getPortAsync = q.denodeify(require("portfinder").getPort);

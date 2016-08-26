@@ -1,7 +1,8 @@
-var Queue = require('better_queue'),
-    crypto = require('crypto'),
-    sqlite3 = require('sqlite3'),
-    deploy = require('./deploy');
+import Queue from 'better_queue';
+import crypto from 'crypto';
+import sqlite3 from 'sqlite3';
+import deploy from './deploy';
+
 
 //var db = new sqlite3.Database("");
 //db.run("CREATE TABLE lorem (info TEXT)");

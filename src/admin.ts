@@ -1,13 +1,13 @@
 /**
   * @file Admin functionality for lazy cloud
   */
-var express = require('express'),
-    cons = require('consolidate'),
-    cookieParser = require('cookie-parser'),
-    bodyParser = require('body-parser'),
-    expressSession = require('express-session');
+import * as express from 'express';
+import * as cookieParser from 'cookie-parser';
+import * as bodyParser from 'body-parser';
+import * as expressSession from 'express-session';
+import {deploy_commit} from './deploy';
 
-function create_admin(deployment_path) {
+export function create_admin(deployment_path) {
     var admin = express.Router();
 
     admin.use(cookieParser());
@@ -45,7 +45,7 @@ function create_admin(deployment_path) {
             }
 
             if (!started) {
-                var inprogress = deploy.deploy(deployment_path, message_split[1]);
+                var inprogress = deploy_commit(deployment_path, message_split[1]);
 
                 inprogress.on('start', _ => ws.send("STARTED"));
                 inprogress.on('end', _ => ws.close("ENDED"));
@@ -61,8 +61,4 @@ function create_admin(deployment_path) {
     });
 
     return admin;
-}
-
-module.exports = {
-    create_admin: create_admin
 }

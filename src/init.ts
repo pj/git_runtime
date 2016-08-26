@@ -1,19 +1,18 @@
 /**
   * @file Scripts for initializing lazy cloud deployments.
   */
-
-var fs = require("q-io/fs"),
-    fse = require("fs-extra"),
-    q = require("q"),
-    utils = require("./utils"),
-    fsn = require("fs");
+import * as fs from 'q-io/fs';
+import * as fse from 'fs-extra';
+import * as q from 'q';
+import * as utils from './utils';
+import * as fsn from 'fs';
 
 var readdir = q.denodeify(fsn.readdir);
 
-function init_deployment(url) {
+export function init_deployment(url) {
     // Check that this directory is empty
     return readdir(".")
-        .then(files => {
+        .then((files: any) => {
             if (files.length === 0) {
                 // Clone repo to repo
                 return utils.exec("git clone " + url + " repo")
@@ -22,8 +21,4 @@ function init_deployment(url) {
                 throw new Error("Directory not empty!");
             }
         })
-}
-
-module.exports = {
-    init_deployment: init_deployment
 }

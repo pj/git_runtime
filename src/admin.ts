@@ -8,7 +8,7 @@ import * as expressSession from 'express-session';
 import {deploy_commit} from './deploy';
 
 export function create_admin(deployment_path) {
-    var admin = express.Router();
+    var admin: any = express.Router();
 
     admin.use(cookieParser());
     admin.use(bodyParser.urlencoded({ extended: false }));
@@ -26,9 +26,6 @@ export function create_admin(deployment_path) {
         res.end();
     });
 
-    /**
-      * Used to poll to get deployment status
-      */
     admin.ws('/deployment/progress', function(ws, req) {
         var started = false;
         ws.on('message', function(msg) {

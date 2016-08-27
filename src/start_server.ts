@@ -1,7 +1,7 @@
 // Run by lazycloudd.js to start proxy process. Note: shouldn't be started
 // directly.
 import * as path from 'path';
-var start_lazycloud_server = require(path.resolve(__dirname, 'processes'));
+import start_lazycloud_server from './processes'
 
 if (process.argv.length <= 6) {
     console.error("Lazy cloud server must be started by script.");

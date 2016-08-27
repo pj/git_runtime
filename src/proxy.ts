@@ -8,12 +8,8 @@ function create_process_def(name, deployment_path, port, production_port, base_h
     return {
         "apps" : [{
             "name"        : name,
-            "script"      : "/usr/local/lib/node_modules/ts-node/dist/bin.js ",// + path.resolve(__dirname, 'start_server.ts'),
+            "script"      :path.resolve(__dirname, '../dist/start_server.js'),
             "args"        : [deployment_path, port, production_port, base_hostname],
-            "cwd"         : deployment_path,
-            //"interpreter" : "/usr/local/lib/node_modules/ts-node/dist/bin.js"
-            //"interpreter" : "/usr/local/bin/ts\-node"
-            "interpreter" : ""
         }]
     };
 }

@@ -160,7 +160,7 @@ async function beforeEachBasic() {
     await ppm2.killDaemon();
 }
 
-async function afterEachBasic() {
+function afterEachBasic() {
     this.repo_cleanup();
     this.deployment_cleanup();
 }
@@ -426,8 +426,8 @@ describe("Web socket deploy, update and start commits.", function () {
     this.timeout(5000);
     beforeEach(async function() {
         await beforeEachBasic.bind(this)();
-        await start_proxy_process('lazycloud - proxy', this.deployment_path,
-                                  3000, 4000, 'localhost');
+        console.log(this.deployment_path);
+        await start_proxy_process('lazycloud - proxy', this.deployment_path, 3000, 4000, 'localhost');
     });
 
     afterEach(afterEachBasic);

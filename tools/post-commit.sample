@@ -1,0 +1,11 @@
+#!/bin/sh
+if git remote | grep lazycloud > /dev/null; then
+    git push --all lazycloud
+    commit_id=$(git rev-parse HEAD)
+    repo_url=$(git remote get-url lazycloud)
+    deploy_url="$(dirname "$repo_url")"
+
+    terminal-notifier -title 'View Commit' -message "$commit_id" -open "http://$commit_id.lazycloud.test:5555"
+else
+    echo 'Please create lazy cloud remote before enabling git commit hook.'
+fi

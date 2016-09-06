@@ -7,7 +7,7 @@
         "moduleResolution": "classic"
     },
     "files": [
-        "src/lazycloudd.ts",
+        "src/lazycloud.ts",
         "src/start_server.ts"
     ]
 }

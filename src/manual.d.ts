@@ -4,6 +4,8 @@
 
 declare module 'q-io/fs' {
     export function stat(blah: any): any;
+    export function read(blah: any): any;
+    export function write(foo: any, bah: any): any;
 }
 
 declare module 'fs-extra' {

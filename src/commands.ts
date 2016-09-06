@@ -6,6 +6,7 @@ import * as fsn from 'fs';
 import * as q from 'q';
 import * as jsonfile from 'jsonfile';
 import * as utils from './utils';
+import * as fse from 'fs-extra';
 
 var readJSON = q.denodeify(jsonfile.readFile);
 
@@ -45,7 +46,11 @@ function get_config_opts(deployment_path, opts) {
             config_opts.production_port = get_config_option(DEFAULT_PRODUCTION_PORT, opts, config_file,
                 'production', 'production_port');
             config_opts.proxy_name = get_config_option(DEFAULT_PROXY_NAME, opts, config_file,
-                'name', 'proxy_name');
+                'proxy-name', 'proxy_name');
+            //console.log(config_opts);
+            //console.log(DEFAULT_PROXY_NAME);
+            //console.log(opts);
+            //console.log(config_file);
             if (opts.base) {
                 config_opts.base_hostname = opts.base;
             } else if (config_file["base_hostname"]){
@@ -53,6 +58,8 @@ function get_config_opts(deployment_path, opts) {
             } else {
                 throw new Error("Base hostname must be in config file or passed on command line.");
             }
+
+            return config_opts;
         });
 }
 
@@ -65,7 +72,7 @@ program
     .action(function(deployment_path, opts){
         get_config_opts(deployment_path, opts)
             .then(function (config_opts) {
-                start_proxy_process(
+                return start_proxy_process(
                     config_opts.proxy_name,
                     config_opts.deployment_path,
                     config_opts.proxy_port,
@@ -86,7 +93,7 @@ program
     .action(function(deployment_path, opts){
         get_config_opts(deployment_path, opts)
             .then(function (config_opts) {
-                restart_proxy_process(
+                return restart_proxy_process(
                     config_opts.proxy_name,
                     config_opts.deployment_path,
                     config_opts.proxy_port,
@@ -100,12 +107,12 @@ program
     });
 
 program
-    .command("stop [deployment_path]")
+    .command("stop")
     .option("-n, --proxy-name", "Name for proxy server process", "lazycloud - proxy")
-    .action(function(deployment_path, opts){
-        get_config_opts(deployment_path, opts)
+    .action(function(opts){
+        get_config_opts(".", opts)
             .then(function (config_opts) {
-                stop_proxy_process(config_opts.proxy_name);
+                return stop_proxy_process(config_opts.proxy_name);
             })
             .catch(function (err) {
                 console.log(err);
@@ -115,8 +122,28 @@ program
 
 // Create a new lazy cloud location from a git url.
 program
-    .command("init <url>")
-    .action(function(opts){
+    .command("init <repository> <hostname>")
+    .action(async function(repository, hostname, opts){
+        let files = await utils.glob('*');
+        if (files.length != 0 ) {
+            console.error('Directory not empty!');
+            process.exit(1)
+        }
+
+        // clone repo
+        try {
+            await utils.exec(`git clone --bare ${repository} repo`);
+            // create lazycloud.json
+            let lazycloud_json =
+`{
+    "repository": "${repository}",
+    "base_hostname": "${hostname}"
+}`
+            await fs.write('lazycloud.json', lazycloud_json);
+        } catch (error) {
+            console.error(error);
+            process.exit(1);
+        }
     });
 
 export default program;

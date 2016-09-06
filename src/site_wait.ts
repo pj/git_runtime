@@ -1,8 +1,10 @@
-import q from 'q';
-import var request from 'request';
+/// <reference path="../typings/index.d.ts" />
+/// <reference path="../typings/auto.d.ts" />
+/// <reference path="./manual.d.ts" />
+import * as q from 'q';
+import * as request from 'request';
 
-
-function wait_for_response(host){
+export function wait_for_response(host){
     var deferred = q.defer();
     var times = 0;
     var intervalId;
@@ -26,5 +28,3 @@ function wait_for_response(host){
 
     return deferred.promise;
 }
-
-module.exports = wait_for_response;

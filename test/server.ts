@@ -1,20 +1,21 @@
-var chai = require("chai");
-chai.should();
+/// <reference path="../typings/index.d.ts" />
+/// <reference path="../typings/auto.d.ts" />
+/// <reference path="../src/manual.d.ts" />
+import * as chai from 'chai';
 var assert = chai.assert;
-var chaiAsPromised = require("chai-as-promised");
-chai.use(chaiAsPromised);
 
-var q = require("q");
-var ppm2 = require("../lib/ppm2");
-var proxy = require('../lib/proxy');
+import * as q from "q";
+var ppm2 = require("../src/ppm2");
+var proxy = require('../src/proxy');
 
 var supertest = require('supertest-as-promised');
 var child_process = require('child_process');
 var child_process_promise = require('child-process-promise');
 var path = require('path');
 var ps = require('ps-node');
-var wait_for_response = require('../lib/site_wait');
+var wait_for_response = require('../src/site_wait');
 
+chai.should();
 function check_ppm2_has_process_name(name){
     return ppm2.connect()
         .then((_) => ppm2.list())
@@ -83,7 +84,7 @@ var kill = q.denodeify(ps.kill);
 
 function killall(command, args) {
     return lookup({ command: command, arguments: args})
-        .then(results => q.all(results.map(process => kill(process.pid))));
+        .then((results: any) => q.all(results.map(process => kill(process.pid))));
 }
 
 function execPromise(command){
@@ -120,8 +121,8 @@ describe('Starting lazy cloud server process', function () {
 
     it('should start the lazy cloud server process', function () {
         return execPromise(
-                'node ' + path.resolve(__dirname, '..', 'lib', 'start_server.js') + ' 5555 8080 localhost',
-                {})
+                'node ' + path.resolve(__dirname, '..', 'lib', 'start_server.js') + ' 5555 8080 localhost'
+                )
                 .then(function (data) {
                     return check_admin_response();
                 });

@@ -8,6 +8,7 @@ import * as nunjucks from 'nunjucks';
 import * as utils from './utils';
 import {deploy_commit} from './deploy';
 import * as admin from './admin';
+import * as ppm2 from './ppm2';
 
 function get_commit_id(req, base_hostname) {
     var hostname = req.headers.host.split(':')[0];
@@ -39,9 +40,9 @@ export default function start_lazycloud_server(deploy_path, server_port, product
         autoescape: true,
         express: app
     });
-    // set .html as the default extension
+    // set .njk as the default extension
     app.set('view engine', 'njk');
-    app.set('views', __dirname + '/views');
+    //app.set('views', __dirname + '/views');
 
     // Setup express js web socket integration.
     var expressWs = require('express-ws')(app);
@@ -57,10 +58,27 @@ export default function start_lazycloud_server(deploy_path, server_port, product
         if (commit_id !== null){
             // quick check here to see if we are already deployed and running
             // and code is up to date.
-            deploy_commit(deploy_path, commit_id)
-                .then((port) =>{
-                    proxy.web(req, res, {target: 'localhost:' + port});
-                });
+            //deploy_commit(deploy_path, commit_id)
+                //.then((port) =>{
+                    //proxy.web(req, res, {target: 'localhost:' + port});
+                //});
+
+            // check if commit is already running.
+            ppm2.connect()
+                .then(_ => ppm2.list())
+                .then(function (list) {
+                    let found = list.filter((item) => item.name.indexOf(commit_id) != -1);
+                    if (found.length == 1) {
+                        proxy.web(req, res, {target: 'localhost:' + found[0].pm2_env.LAZY_CLOUD_PORT});
+                    } else {
+                        // if isn't running then return splash page to start deploy.
+                        res.render('deploy_progress', {commit_id: commit_id,
+                                   url: `${base_hostname}:${server_port}`});
+                    }
+                })
+                .then(_ => ppm2.disconnect())
+                .catch(err => next(err));
+
         } else {
             proxy.web(req, res, {target: 'localhost:' + production_port});
         }

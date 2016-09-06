@@ -4,22 +4,43 @@
     <head>
         <meta charset="utf-8">
 
-        <title>Deploying commit</title>
+        <title>Deploying commit - {{ commit_id }}</title>
         <meta name="description" content="Deploying commit in process">
         <meta name="author" content="LazyCloud">
         <script src="https://code.jquery.com/jquery-3.1.0.min.js"
-                integrity="sha256-cCueBR6CsyA4/9szpPfrX3s49M9vUU5BgtiJj06wt/s=" crossorigin="anonymous"></script>
+                integrity="sha256-cCueBR6CsyA4/9szpPfrX3s49M9vUU5BgtiJj06wt/s="
+                crossorigin="anonymous"></script>
     </head>
 
     <body>
+        <h2>Deploying commit - {{ commit_id }}</h2>
+        <div>
+            Updates:
+            <ul id="progress-list">
+            </ul>
+        </div>
         <script type="text/javascript">
-setInterval(function (){
-    $.ajax('/lazy_cloud_admin/deployment/{{ deploy_id }}')
-        .done(function (data) {
-        })
-        .fail(function( jqXHR, textStatus, errorThrown ) {
-        });
-}, 500);
+            $(function () {
+                let deploySocket = WebSocket('http://{{ url }}/lazy_cloud_admin/deployment/progress');
+                deploySocket.onopen = function () {
+                    deploySocket.send("DEPLOY {{ commit_id }}")
+                };
+
+                deploySocket.onmessage = function (message) {
+                    let [message_type, message] = data.split(" ");
+
+                    $("#progress-list").append(`<li><strong>${message_type}</strong> - ${message}</li>`)
+                };
+
+                deploySocket.onerror = function (message) {
+                    $("#progress-list").append(`<li><strong>ERROR</strong> - ${message}</li>`)
+                };
+
+                deploySocket.onclose = function () {
+                    // reload page to access site.
+                    location.reload(true);
+                };
+            });
         </script>
     </body>
 </html>

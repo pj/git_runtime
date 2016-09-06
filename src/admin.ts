@@ -21,8 +21,13 @@ export function create_admin(deployment_path) {
 
     admin.get('/', function(req, res){
         res.write("Hello from the lazy cloud server admin!\n");
-        res.write("Port: " + process.argv[2] + '\n');
-        res.write("Hostname: " + process.argv[4] + '\n');
+        res.write("Port: " + process.argv[4] + '\n');
+        res.write("Hostname: " + process.argv[5] + '\n');
+        res.end();
+    });
+
+    admin.get('/heartbeat', function(req, res){
+        res.json({'alive':true});
         res.end();
     });
 
@@ -31,22 +36,19 @@ export function create_admin(deployment_path) {
         ws.on('message', function(msg) {
             var message_split = msg.split(" ");
 
-            if (message_split.length !== 2) {
-                ws.close('ERROR Invalid deploy message');
+            if (message_split.length !== 2 && message_split[0] !== "DEPLOY") {
+                ws.close(1003, 'ERROR Invalid deploy message');
                 return;
-            }
-
-            if (message_split[0] !== "DEPLOY") {
-                ws.close("ERROR message should be deploy");
-                return
             }
 
             if (!started) {
                 var inprogress = deploy_commit(deployment_path, message_split[1]);
 
-                inprogress.on('start', _ => ws.send("STARTED"));
-                inprogress.on('end', _ => ws.close("ENDED"));
-                inprogress.on('error', err => ws.close("ERROR " + err.toString()));
+                inprogress.on('start', function () {
+                    ws.send("STARTED");
+                });
+                inprogress.on('end', _ => ws.close(1000, "ENDED"));
+                inprogress.on('error', err => ws.close(1003, "ERROR " + err.toString()));
                 inprogress.on('progress', progress => ws.send("PROGRESS " + progress));
                 started = true;
             }

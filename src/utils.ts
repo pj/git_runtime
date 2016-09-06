@@ -1,5 +1,6 @@
 import * as q from 'q';
 import * as child_process from 'child_process';
+import * as fse from 'fs-extra';
 
 export function exec(command: string, options=null){
     var deferred = q.defer();
@@ -105,6 +106,34 @@ export function denodeifyAll(o) {
     return new_module;
 }
 
+import * as request from 'request';
+
+export function wait_for_response(host){
+    return new Promise(function (resolve, reject) {
+        var times = 0;
+        var intervalId;
+        intervalId = setInterval(function () {
+            request(host, function (err, response, body){
+                if (err) {
+                    if (times < 5) {
+                        times += 1;
+                        return;
+                    } else {
+                        clearInterval(intervalId);
+                        reject(new Error("Host not responding"));
+                    }
+                } else {
+                    clearInterval(intervalId);
+                    resolve();
+                }
+            });
+        }, 200);
+    });
+}
+
 // Various promiseified modules
 export const tmp:any = denodeifyAll(require("tmp"));
+//export const fse:any = denodeifyAll(require("fs-extra"));
+export const emptyDir:any = q.denodeify(fse.emptyDir);
+export const glob:any = q.denodeify(require("glob"));
 export var getPortAsync = q.denodeify(require("portfinder").getPort);

@@ -60,7 +60,7 @@ async function standard_deploy(deploy_path, commit_id, port) {
 
     // open package.json so we can check whether the pre and post deploy
     // scripts exist.
-    let json = await readJSON("package.json")
+    let json = await readJSON("package.json");
     // run predeploy
     await execIf(json['scripts'] && json['scripts']['lazy_cloud:predeploy'],
                  "npm run-script lazy_cloud:predeploy");
@@ -76,6 +76,9 @@ async function standard_deploy(deploy_path, commit_id, port) {
     // start server
     await ppm2.connect();
     await ppm2.start(create_process_def(commit_id, port));
+
+    // wait for response
+    await utils.wait_for_response('http://localhost:' + port + "/lazy_cloud_heartbeat");
 }
 
 async function reset_and_pull_repo(repo_path) {
@@ -143,14 +146,14 @@ async function deploy_process_not_running(myEmitter, clone_path, treeish) {
     await standard_deploy(clone_path, treeish, new_port);
 }
 
-// Returns an event emitter, since I want to decouple this from the
-// queue/updating sqlite.
+// Returns an event emitter, since I want to decouple this from
+// what controls the deploy process.
 export function deploy_commit(deploy_path, treeish) {
     var myEmitter = new (EventEmitter as any)();
     var source_repo_path = path.resolve(deploy_path, 'repo');
     var clone_path = path.resolve(deploy_path, "commits", treeish);
-    myEmitter.emit('start', source_repo_path, clone_path, treeish);
     fsn.stat(clone_path, function(err, stat) {
+        myEmitter.emit('start', source_repo_path, clone_path, treeish);
         if (err) {
             myEmitter.emit('progress', 'Cloning code.');
             deploy_new_commit(source_repo_path, clone_path, treeish)

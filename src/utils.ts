@@ -1,3 +1,6 @@
+/// <reference path="../typings/index.d.ts" />
+/// <reference path="../typings/auto.d.ts" />
+/// <reference path="manual.d.ts" />
 import * as q from 'q';
 import * as child_process from 'child_process';
 import * as fse from 'fs-extra';
@@ -36,11 +39,11 @@ export function exec(command: string, options=null){
     proc.on('close', (code) => {
         let stdout = stdout_data.join("");
         let stderr = stderr_data.join("");
-        //console.log("=======");
-        //console.log(command);
-        //console.log(stdout);
-        //console.log("-------");
-        //console.log(stderr);
+        console.log("=======");
+        console.log(command);
+        console.log(stdout);
+        console.log("-------");
+        console.log(stderr);
 
         if (code !== 0) {
             deferred.reject(new Error("Process closed unexpectedly with code: " + code));

@@ -40,7 +40,9 @@ function get_config_opts(deployment_path, opts) {
             }
         })
         .then(function (config_file){
-            var config_opts: any = {};
+            var config_opts: any = {
+                deployment_path: deployment_path
+            };
             config_opts.proxy_port = get_config_option(DEFAULT_PROXY_PORT, opts, config_file,
                 'port', 'proxy_port');
             config_opts.production_port = get_config_option(DEFAULT_PRODUCTION_PORT, opts, config_file,

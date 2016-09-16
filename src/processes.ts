@@ -9,6 +9,7 @@ import * as utils from './utils';
 import {deploy_commit} from './deploy';
 import * as admin from './admin';
 import * as ppm2 from './ppm2';
+import * as path from 'path';
 
 function get_commit_id(req, base_hostname) {
     var hostname = req.headers.host.split(':')[0];
@@ -32,23 +33,24 @@ function get_commit_id(req, base_hostname) {
     }
 }
 
-export default function start_lazycloud_server(deploy_path, server_port, production_port, base_hostname) {
+export default function start_lazycloud_server(deploy_path, server_port,
+                                               production_port, base_hostname) {
     var app = express();
 
     // Template config.
-    nunjucks.configure('views', {
+    nunjucks.configure(path.resolve(__dirname, '..', 'views'), {
         autoescape: true,
-        express: app
+        express: app,
+        noCache: true
     });
     // set .njk as the default extension
     app.set('view engine', 'njk');
-    //app.set('views', __dirname + '/views');
 
     // Setup express js web socket integration.
     var expressWs = require('express-ws')(app);
 
     // admin
-    var admin_router = admin.create_admin(deploy_path);
+    var admin_router = admin.create_admin(deploy_path, base_hostname);
     app.use('/lazy_cloud_admin', admin_router);
 
     var proxy = httpProxy.createProxyServer();
@@ -68,8 +70,8 @@ export default function start_lazycloud_server(deploy_path, server_port, product
                 .then(_ => ppm2.list())
                 .then(function (list) {
                     let found = list.filter((item) => item.name.indexOf(commit_id) != -1);
-                    if (found.length == 1) {
-                        proxy.web(req, res, {target: 'localhost:' + found[0].pm2_env.LAZY_CLOUD_PORT});
+                    if (found.length == 1 && found[0].pm2_env.status === 'online') {
+                        proxy.web(req, res, {target: `http://${base_hostname}:${found[0].pm2_env.LAZY_CLOUD_PORT}`});
                     } else {
                         // if isn't running then return splash page to start deploy.
                         res.render('deploy_progress', {commit_id: commit_id,

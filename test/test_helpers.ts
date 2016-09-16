@@ -13,7 +13,7 @@ import * as init from '../src/init';
 async function write_commit(tmp_repo_path, commit) {
     process.chdir(tmp_repo_path);
     let [message, files] = commit;
-    console.log(Object.keys(files).map(path => files[path]));
+    //console.log(Object.keys(files).map(path => files[path]));
     await Promise.all(Object.keys(files)
                         .map(path => fs.write(path, files[path])));
     // commit with message

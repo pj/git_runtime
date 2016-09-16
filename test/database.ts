@@ -13,9 +13,11 @@ var fs = require("q-io/fs");
 import * as ppm2 from "../src/ppm2";
 import * as fse from '../src/fs-extra';
 import {commiterator, createTempRepo} from './test_helpers';
+import * as original_rethinkdb from 'rethinkdb';
 import patch_rethinkdb from "../src/database";
 
-var r = patch_rethinkdb();
+var git_tree = [];
+var r = patch_rethinkdb(git_tree);
 
 //let _original_run = r.run;
 
@@ -50,41 +52,48 @@ describe("Version database", function () {
 
         assert.property(get_result, 'lazy_cloud_commit_id');
         assert.equal(get_result.lazy_cloud_commit_id, '1234');
-        // check version is part of id.
-        assert(get_result.id.indexOf('1234') === 0, 'Version should be part of the id');
+        assert.equal(insert_result.generated_keys[0], get_result.id);
     });
 
-    it.skip("update and retrieve correct version of records",  function () {
-        //process["LAZY_CLOUD_COMMIT_ID"] = "4321";
-        //// create record.
-        //await r.table('test')
-               //.insert({message: "hello"})
-               //.run(this.connection);
+    it("update and retrieve correct version of records", async function () {
+        // Set environment version.
+        process.env["LAZY_CLOUD_COMMIT_ID"] = "1234";
 
-        //process["LAZY_CLOUD_COMMIT_ID"] = "1234";
+        // create record.
+        var insert_result = await r.table('test')
+                                   .insert({hello: "world!"})
+                                   .run(this.connection);
 
-        //// create record.
-        //var insert_result = await r.table('test')
-                                   //.update({message: "world!"})
-                                   //.run(this.connection);
+        var new_id = insert_result.generated_keys[0];
 
-        //// Set environment version.
-        //var get_result = await r.table('test')
-                                   //.get(insert_result.generated_keys[0])
-                                   //.run(this.connection);
+        // test version creation.
+        var get_result = await r.table('test')
+                                   .get(new_id)
+                                   .run(this.connection);
 
-        //// retrieve version.
-        //assert.property(get_result, 'lazy_cloud_commit_id');
-        //assert.equal(get_result.lazy_cloud_commit_id, '1234');
-        // create base record.
+        assert.isNotNull(get_result);
+        assert.property(get_result, 'lazy_cloud_commit_id');
+        assert.equal(get_result.lazy_cloud_commit_id, '1234');
+        assert.equal(new_id, get_result.id);
 
-        // set version
+        // Set new environment version.
+        process.env["LAZY_CLOUD_COMMIT_ID"] = "4321";
 
         // update record
+        var update_result = await r.table('test')
+                                   .get(new_id)
+                                   .update({goodbye: "world!"})
+                                   .run(this.connection);
 
-        // test parent ids and parent record id.
+        var update_get_result = await r.table('test')
+                                   .get(new_id)
+                                   .run(this.connection);
 
+        assert.isNotNull(update_get_result);
+        assert.property(update_get_result, 'lazy_cloud_commit_id');
+        assert.equal(update_get_result.lazy_cloud_commit_id, '4321');
         // check that two records now exist.
+
     });
 
     it.skip("update records by copy on write by using specific branch point",  function () {

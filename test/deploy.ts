@@ -74,10 +74,10 @@ async function check_processes(...commit_ids) {
     }
 }
 
-function test_deploy_emitter(deployment_path, treeish, tests) {
+function test_deploy_emitter(deployment_path, treeish, base_hostname, tests) {
     return new Promise(function (resolve, reject) {
         // deploy basic branch.
-        let emitter = deploy_commit(deployment_path, treeish);
+        let emitter = deploy_commit(deployment_path, base_hostname, treeish);
 
         emitter.on('end', function() {
             tests()
@@ -125,7 +125,7 @@ describe("Deploy, update and start commits.", function () {
         // pull changes into deployment.
         await utils.exec('git pull', {cwd: this.deploy_repo_path});
 
-        await test_deploy_emitter(this.deployment_path, 'master', async function () {
+        await test_deploy_emitter(this.deployment_path, 'master', 'lazycloud.test', async function () {
             // check code exists
             await check_files(path.resolve(this.deployment_path, 'commits', 'master'),
                               'package.json', 'index.js');
@@ -139,7 +139,7 @@ describe("Deploy, update and start commits.", function () {
         await utils.exec('git pull', {cwd: this.deploy_repo_path});
 
         // deploy changes.
-        await test_deploy_emitter(this.deployment_path, 'master', async function () {
+        await test_deploy_emitter(this.deployment_path, 'master', 'lazycloud.test', async function () {
             // check commit id of deployed directory.
             let deployed_id = await utils.exec('git rev-parse HEAD', {cwd: this.deploy_repo_path});
             expect(second_commit_id).to.equal(deployed_id[0].trim());
@@ -168,7 +168,7 @@ describe("Deploy, update and start commits.", function () {
         // pull changes into deployment.
         await utils.exec('git pull', {cwd: deploy_repo_path});
 
-        await test_deploy_emitter(this.deployment_path, commit_id, async function () {
+        await test_deploy_emitter(this.deployment_path, commit_id, 'lazycloud.test', async function () {
             // check code exists
             await check_files(path.resolve(this.deployment_path, 'commits', commit_id),
                           'package.json', 'index.js');
@@ -182,7 +182,7 @@ describe("Deploy, update and start commits.", function () {
         await utils.exec('git pull', {cwd: deploy_repo_path});
 
         // deploy changes.
-        await test_deploy_emitter(this.deployment_path, second_commit_id, async function () {
+        await test_deploy_emitter(this.deployment_path, second_commit_id, 'lazycloud.test', async function () {
             // check commit id of deployed directory.
             let deployed_id = await utils.exec("git rev-parse HEAD", {cwd: deploy_repo_path});
             expect(second_commit_id).to.equal(deployed_id[0].trim());
@@ -213,7 +213,7 @@ describe("Deploy, update and start commits.", function () {
         // pull changes into deployment.
         await utils.exec('git pull', {cwd: this.deploy_repo_path});
 
-        await test_deploy_emitter(this.deployment_path, 'master', async function () {
+        await test_deploy_emitter(this.deployment_path, 'master', 'lazycloud.test', async function () {
             // check code exists
             await check_files(path.resolve(this.deployment_path, 'commits', 'master'),
                           'package.json', 'index.js');
@@ -230,7 +230,7 @@ describe("Deploy, update and start commits.", function () {
         await ppm2.killDaemon();
 
         // deploy changes.
-        await test_deploy_emitter(this.deployment_path, 'master', async function () {
+        await test_deploy_emitter(this.deployment_path, 'master', 'lazycloud.test', async function () {
             // check commit id of deployed directory.
             let deployed_id = await utils.exec('git rev-parse HEAD', {cwd: this.deploy_repo_path});
             expect(second_commit_id).to.equal(deployed_id[0].trim());
@@ -254,7 +254,7 @@ describe("Deploy, update and start commits.", function () {
         // pull changes into deployment.
         await utils.exec('git pull --all', {cwd: this.deploy_repo_path});
 
-        await test_deploy_emitter(this.deployment_path, 'master', async function () {
+        await test_deploy_emitter(this.deployment_path, 'master', 'lazycloud.test', async function () {
             // check code exists
             await check_files(path.resolve(this.deployment_path, 'commits', 'master'),
                           'package.json', 'index.js');
@@ -264,7 +264,7 @@ describe("Deploy, update and start commits.", function () {
         }.bind(this));
 
         // deploy changes.
-        await test_deploy_emitter(this.deployment_path, commit_id, async function () {
+        await test_deploy_emitter(this.deployment_path, commit_id, 'lazycloud.test', async function () {
             // check code exists
             await check_files(path.resolve(this.deployment_path, 'commits', 'master'),
                           'package.json', 'index.js');
@@ -299,7 +299,7 @@ describe("Deploy, update and start commits.", function () {
         // pull changes into deployment.
         await utils.exec('git pull --all', {cwd: this.deploy_repo_path});
 
-        await test_deploy_emitter(this.deployment_path, 'master', async function () {
+        await test_deploy_emitter(this.deployment_path, 'master', 'lazycloud.test', async function () {
             // check code exists
             await check_files(path.resolve(this.deployment_path, 'commits', 'master'),
                           'package.json', 'index.js', 'blah.blah');
@@ -309,7 +309,7 @@ describe("Deploy, update and start commits.", function () {
         }.bind(this));
 
         // deploy changes.
-        await test_deploy_emitter(this.deployment_path, 'branch', async function () {
+        await test_deploy_emitter(this.deployment_path, 'branch', 'lazycloud.test', async function () {
             // check code exists
             await check_files(path.resolve(this.deployment_path, 'commits', 'master'),
                           'package.json', 'index.js', 'blah.blah');
@@ -346,15 +346,19 @@ function test_ws_deploy(commit_id, test_callback) {
             }
         });
 
-        ws.on('close', function(data, flags) {
-            //console.log(data);
-            test_callback()
-                .then(_ => resolve())
-                .catch(err => reject(err));
+        ws.on('close', function(code, message) {
+            if (code !== 1000) {
+                reject(message);
+            } else {
+                //console.log(data);
+                test_callback()
+                    .then(_ => resolve())
+                    .catch(err => reject(err));
+            }
         });
 
         ws.on('error', function(data, flags) {
-            //console.log(data);
+            console.log(data);
             reject(data);
         });
     });
@@ -366,7 +370,8 @@ describe("Web socket deploy, update and start commits.", function () {
         await createTempRepo.bind(this)();
         await createTempDeployment.bind(this)();
         await utils.exec('tsc', {cwd: path.resolve(__dirname, '..')});
-        await start_proxy_process('lazycloud - proxy', this.deployment_path, 3000, 4000, 'localhost');
+        await start_proxy_process('lazycloud - proxy', this.deployment_path,
+                                  3000, 4000, 'lazycloud.test');
     });
 
     afterEach(function() {
@@ -379,7 +384,7 @@ describe("Web socket deploy, update and start commits.", function () {
             ["initial commit", { 'package.json': package_json,
                                  'index.js': index_js }],
             ["another commit", { 'package.json': package_json.replace(
-                '"scripts": {}', `"scripts": {\n"lazy_cloud:postdeploy": "touch blah.blah"}\n    }`)}]
+                '"scripts": {}', `"scripts": {\n"lazy_cloud:postdeploy": "touch blah.blah"\n    }`)}]
         );
 
         await commits.next();
@@ -397,7 +402,6 @@ describe("Web socket deploy, update and start commits.", function () {
             await check_processes('master')
         }.bind(this));
 
-        // write second commit
         // write second commit
         let second_commit_id = await commits.next();
         await utils.exec('git pull', {cwd: this.deploy_repo_path});

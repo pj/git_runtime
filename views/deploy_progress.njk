@@ -21,24 +21,29 @@
         </div>
         <script type="text/javascript">
             $(function () {
-                let deploySocket = WebSocket('http://{{ url }}/lazy_cloud_admin/deployment/progress');
+                var deploySocket = new WebSocket('ws://{{ url }}/lazy_cloud_admin/deployment/progress');
                 deploySocket.onopen = function () {
                     deploySocket.send("DEPLOY {{ commit_id }}")
                 };
 
                 deploySocket.onmessage = function (message) {
-                    let [message_type, message] = data.split(" ");
+                    var message_type = message.data.slice(0, message.data.indexOf(" "));
+                    var message_detail = message.data.slice(message.data.indexOf(" "));
 
-                    $("#progress-list").append(`<li><strong>${message_type}</strong> - ${message}</li>`)
+                    $("#progress-list").append("<li><strong>" + message_type + "</strong> - " + message_detail + "</li>");
                 };
 
-                deploySocket.onerror = function (message) {
-                    $("#progress-list").append(`<li><strong>ERROR</strong> - ${message}</li>`)
-                };
+                <!--deploySocket.onerror = function (error) {-->
+                    <!--$("#progress-list").append("<li><strong>ERROR</strong> - " + error + "</li>");-->
+                <!--};-->
 
-                deploySocket.onclose = function () {
-                    // reload page to access site.
-                    location.reload(true);
+                deploySocket.onclose = function (message) {
+                    if (message.code !== 1000) {
+                        $("#progress-list").append("<li><strong>ERROR</strong> - " + message.reason + "</li>");
+                    } else {
+                        // reload page to access site.
+                        location.reload(true);
+                    }
                 };
             });
         </script>

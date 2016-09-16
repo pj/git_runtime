@@ -7,7 +7,7 @@ import * as bodyParser from 'body-parser';
 import * as expressSession from 'express-session';
 import {deploy_commit} from './deploy';
 
-export function create_admin(deployment_path) {
+export function create_admin(deployment_path, base_hostname) {
     var admin: any = express.Router();
 
     admin.use(cookieParser());
@@ -42,14 +42,19 @@ export function create_admin(deployment_path) {
             }
 
             if (!started) {
-                var inprogress = deploy_commit(deployment_path, message_split[1]);
+                var inprogress = deploy_commit(deployment_path, base_hostname, message_split[1]);
 
                 inprogress.on('start', function () {
                     ws.send("STARTED");
                 });
                 inprogress.on('end', _ => ws.close(1000, "ENDED"));
-                inprogress.on('error', err => ws.close(1003, "ERROR " + err.toString()));
-                inprogress.on('progress', progress => ws.send("PROGRESS " + progress));
+                inprogress.on('error', function(err){
+                    console.error(err);
+                    ws.close(1003, "ERROR " + err.toString());
+                });
+                inprogress.on('progress', function(progress) {
+                    ws.send("PROGRESS " + progress);
+                });
                 started = true;
             }
         });

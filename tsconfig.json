@@ -4,10 +4,11 @@
         "outDir": "dist",
         "target": "ES6",
         "module": "commonjs",
-        "moduleResolution": "classic"
+        "moduleResolution": "node"
     },
     "files": [
         "src/lazycloud.ts",
-        "src/start_server.ts"
+        "src/start_server.ts",
+        "src/database.ts"
     ]
 }

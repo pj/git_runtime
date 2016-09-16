@@ -55,7 +55,7 @@ async function commit_is_running(commit_id) {
 }
 
 // standard deploy steps
-async function standard_deploy(deploy_path, commit_id, port) {
+async function standard_deploy(deploy_path, commit_id, base_hostname, port) {
     process.chdir(deploy_path);
 
     // open package.json so we can check whether the pre and post deploy
@@ -71,6 +71,7 @@ async function standard_deploy(deploy_path, commit_id, port) {
     // run npm init
     await utils.exec("npm install");
     // run postdeploy
+    //console.log(json);
     await execIf(json['scripts'] && json['scripts']['lazy_cloud:postdeploy'],
                  "npm run-script lazy_cloud:postdeploy");
     // start server
@@ -78,16 +79,31 @@ async function standard_deploy(deploy_path, commit_id, port) {
     await ppm2.start(create_process_def(commit_id, port));
 
     // wait for response
-    await utils.wait_for_response('http://localhost:' + port + "/lazy_cloud_heartbeat");
+    await utils.wait_for_response(`http://${base_hostname}:${port}/lazy_cloud_heartbeat`);
 }
 
-async function reset_and_pull_repo(repo_path) {
+async function reset_and_pull_repo(repo_path, treeish) {
     process.chdir(repo_path);
     await utils.exec("git reset --hard");
     // clean repo
     await utils.exec("git clean -dfX");
-    // pull all changes
-    await utils.exec("git pull");
+    // fetch all changes
+    await utils.exec("git fetch --all");
+
+    // check if treeish is checked out already
+    let result = await utils.execPred('git rev-parse --verify ' + treeish);
+    if (result === 0) {
+        await utils.exec("git checkout " + treeish);
+
+        // check if treeish is a specific commit id or is a branch id
+        let treeish_test:any = await utils.exec("git rev-parse " + treeish);
+        if (treeish_test[0].trim() !== treeish) {
+            // if it's a branch then pull
+            await utils.exec("git pull");
+        }
+    } else {
+        await utils.exec("git checkout -b " + treeish);
+    }
 }
 
 async function needs_update(repo_path) {
@@ -97,7 +113,7 @@ async function needs_update(repo_path) {
     return result === 1 ? true : false;
 }
 
-async function deploy_new_commit(source_repo_path, clone_path, treeish) {
+async function deploy_new_commit(source_repo_path, clone_path, base_hostname, treeish) {
     await utils.exec("git clone " + source_repo_path + " " + clone_path)
     // set checkout commit to treeish
     process.chdir(clone_path);
@@ -109,10 +125,10 @@ async function deploy_new_commit(source_repo_path, clone_path, treeish) {
     }
     let new_port = await utils.getPortAsync();
     // standard deploy
-    await standard_deploy(clone_path, treeish, new_port);
+    await standard_deploy(clone_path, treeish, base_hostname, new_port);
 }
 
-async function deploy_process_running(myEmitter, ppm2_process, clone_path, treeish) {
+async function deploy_process_running(myEmitter, ppm2_process, clone_path, base_hostname, treeish) {
     let need_update = await needs_update(clone_path);
     if (!need_update) {
         // Nothing has changed so just return
@@ -124,31 +140,35 @@ async function deploy_process_running(myEmitter, ppm2_process, clone_path, treei
         await ppm2.connect();
         await ppm2.deleteProcess(ppm2_process.name);
         // reset and pull
-        await reset_and_pull_repo(clone_path);
+        await reset_and_pull_repo(clone_path, treeish);
         await standard_deploy(clone_path, treeish,
+                              base_hostname,
                               ppm2_process.pm2_env.LAZY_CLOUD_PORT);
     }
 }
 
-async function deploy_process_not_running(myEmitter, clone_path, treeish) {
+async function deploy_process_errored(myEmitter, ppm2_process, clone_path, base_hostname, treeish) {
+    // stop current process.
+    await ppm2.connect();
+    await ppm2.deleteProcess(ppm2_process.name);
+    // reset and pull
+    await reset_and_pull_repo(clone_path, treeish);
+    await standard_deploy(clone_path, treeish,
+                          base_hostname,
+                          ppm2_process.pm2_env.LAZY_CLOUD_PORT);
+}
+async function deploy_process_not_running(myEmitter, clone_path, base_hostname, treeish) {
     // clean and fast forward directory before deploying.
     process.chdir(clone_path);
-    await reset_and_pull_repo(clone_path);
-    // set checkout commit to treeish
-    let result = await utils.execPred('git rev-parse --verify ' + treeish);
-    if (result === 0) {
-        await utils.exec("git checkout " + treeish);
-    } else {
-        await utils.exec("git checkout -b " + treeish);
-    }
+    await reset_and_pull_repo(clone_path, treeish);
     // standard deploy
     let new_port = await utils.getPortAsync();
-    await standard_deploy(clone_path, treeish, new_port);
+    await standard_deploy(clone_path, treeish, base_hostname, new_port);
 }
 
 // Returns an event emitter, since I want to decouple this from
 // what controls the deploy process.
-export function deploy_commit(deploy_path, treeish) {
+export function deploy_commit(deploy_path, base_hostname, treeish) {
     var myEmitter = new (EventEmitter as any)();
     var source_repo_path = path.resolve(deploy_path, 'repo');
     var clone_path = path.resolve(deploy_path, "commits", treeish);
@@ -156,7 +176,7 @@ export function deploy_commit(deploy_path, treeish) {
         myEmitter.emit('start', source_repo_path, clone_path, treeish);
         if (err) {
             myEmitter.emit('progress', 'Cloning code.');
-            deploy_new_commit(source_repo_path, clone_path, treeish)
+            deploy_new_commit(source_repo_path, clone_path, base_hostname, treeish)
                 .then(_ => myEmitter.emit('end'))
                 .catch(err => myEmitter.emit('error', err));
         } else {
@@ -166,13 +186,19 @@ export function deploy_commit(deploy_path, treeish) {
                 commit_is_running(treeish)
                     .then(function (ppm2_process){
                         if (ppm2_process) {
-                            myEmitter.emit('progress',
-                               'Commit already running');
-                            return deploy_process_running(myEmitter, ppm2_process, clone_path, treeish);
+                            if (ppm2_process.pm2_env.status ==='online') {
+                                myEmitter.emit('progress',
+                                   'Commit already running');
+                                return deploy_process_running(myEmitter, ppm2_process, clone_path, base_hostname, treeish);
+                            } else {
+                                myEmitter.emit('progress',
+                                   'Commit errored restarting');
+                                return deploy_process_errored(myEmitter, ppm2_process, clone_path, base_hostname, treeish);
+                            }
                         } else {
                             myEmitter.emit('progress',
                                'Commit not already running');
-                            return deploy_process_not_running(myEmitter, clone_path, treeish);
+                            return deploy_process_not_running(myEmitter, clone_path, base_hostname, treeish);
                         }})
                     .then(_ => myEmitter.emit('end'))
                     .catch(err => myEmitter.emit('error', err));

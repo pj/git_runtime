@@ -1,73 +1,56 @@
 /// <reference path="../../typings/index.d.ts" />
 /// <reference path="../../typings/auto.d.ts" />
 /// <reference path="../manual.d.ts" />
-import {Map} from 'immutable';
+import {Map, Record} from 'immutable';
 var uuid = require('uuid');
 
-class Version {
-    parent: Version
-    items: Map<string, any>
-    version_id: string
-    constructor(parent, version_id, items) {
-        this.parent = parent;
-        this.version_id = version_id;
-        this.items = items;
-    }
+let Version = Record({parent: null, version_id: null, items: Map()});
 
-    set_item(key, item) {
-        let new_items = this.items.set(key, item);
-
-        return new Version(this.parent, this.version_id, new_items);
-    }
-
-    delete_item(key) {
-        let new_items = this.items.delete(key);
-
-        return new Version(this.parent, this.version_id, new_items);
+function check_transaction_and_version(snapshots, transaction_id, version_id) {
+    if (snapshots.has(transaction_id)) {
+        if (snapshots.hasIn([transaction_id, version_id])) {
+            return null;
+        } else {
+            throw new Error("Invalid version");
+        }
+    } else {
+        throw new Error("Invalid transaction");
     }
 }
 
 export function get_item(snapshots, item_id, version_id, transaction_id) {
-    let snapshot = snapshots.get(transaction_id);
-    let version = snapshot.get(version_id);
-    if (version && version.items.has(item_id)) {
-        return version.items.get(item_id);
+    check_transaction_and_version(snapshots, transaction_id, version_id);
+    if (snapshots.hasIn([transaction_id, version_id, "items", item_id])) {
+        return snapshots.getIn([transaction_id, version_id, "items", item_id]);
     } else {
         return null;
     }
 }
 
 export function update_item(snapshots, item_id, version_id, transaction_id, data) {
+    check_transaction_and_version(snapshots, transaction_id, version_id);
     data.id = item_id;
     data.version = version_id;
-    let snapshot = snapshots.get(transaction_id);
-    let git_version = snapshot.get(version_id);
-    let new_git_version = git_version.set_item(item_id, data);
-    let new_snapshot = snapshot.set(version_id, new_git_version);
-    return snapshots.set(transaction_id, new_snapshot);
+
+    return snapshots.setIn([transaction_id, version_id, "items", item_id], data);
 }
 
 export function delete_item(snapshots, item_id, version_id, transaction_id) {
-    let snapshot = snapshots.get(transaction_id);
-    let version = snapshot.get(version_id);
-    if (version) {
-        let new_version = version.delete_item(item_id);
-        let new_snapshot = snapshot.set(version_id, new_version);
-        return snapshots.set(transaction_id, new_snapshot);
+    check_transaction_and_version(snapshots, transaction_id, version_id);
+    if (snapshots.hasIn([transaction_id, version_id, "items", item_id])) {
+        return snapshots.deleteIn([transaction_id, version_id, "items", item_id])
     } else {
         throw new Error("Item does not exist");
     }
 }
 
 export function create_item(snapshots, version_id, transaction_id, data) {
+    check_transaction_and_version(snapshots, transaction_id, version_id);
     let item_id = uuid.v4();
     data.id = item_id;
     data.version = version_id;
-    let snapshot = snapshots.get(transaction_id);
-    let git_version = snapshot.get(version_id);
-    let new_git_version = git_version.set_item(item_id, data);
-    let new_snapshot = snapshot.set(version_id, new_git_version);
-    return [snapshots.set(transaction_id, new_snapshot), item_id];
+    let new_snapshots = snapshots.setIn([transaction_id, version_id, "items", item_id], data);
+    return [new_snapshots, item_id];
 }
 
 export function find_items(snapshots, project, select, reduce, version_id, transaction_id) {
@@ -79,18 +62,20 @@ export function find_items(snapshots, project, select, reduce, version_id, trans
 }
 
 export function create_version(snapshots, commit_id, parent_commit_id): Map<string, Map<string, any>> {
-    let current_snapshot = snapshots.get("current", Map());
     // handle initial commit.
     if (parent_commit_id === null) {
         // FIXME: git can apparently have multiple independent intial commits,
         // not sure if this should be allowed?
-        var new_version = new Version(null, commit_id, Map());
+        var new_version = new Version({parent: null, version_id: commit_id});
     } else {
-        let parent_version = current_snapshot.get(parent_commit_id);
-        var new_version = new Version(parent_version, commit_id, parent_version.items);
+        //let current_snapshot = snapshots.get("current", Map());
+        //let parent_version = current_snapshot.get(parent_commit_id);
+        let parent_version = snapshots.getIn(["current", parent_commit_id]);
+        var new_version = new Version({parent: parent_version,
+                                       version_id: commit_id,
+                                       items: parent_version.items});
     }
-    let new_snapshot = current_snapshot.set(commit_id, new_version);
-    return snapshots.set("current", new_snapshot);
+    return snapshots.setIn(["current", commit_id], new_version);
 }
 
 export function begin_transaction(snapshots, snapshot_id) {

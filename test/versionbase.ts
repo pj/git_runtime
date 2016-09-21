@@ -218,5 +218,5 @@ describe.skip("versionbase snapshots", function () {
 describe.skip("versionbase server", function () {
 });
 
-describe.skip("versionbase client", function () {
+describe("versionbase client", function () {
 });

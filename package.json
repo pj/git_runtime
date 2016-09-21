@@ -24,8 +24,7 @@
     "lazycloud": "dist/lazycloud.js"
   },
   "scripts": {
-    "test": "mocha --harmony",
-    "test:ts": "mocha --compilers ts:ts-node/register,tsx:ts-node/register",
+    "test": "mocha --compilers ts:ts-node/register,tsx:ts-node/register",
     "test:watch": "watch-run -i -p 'test/**/*.ts,src/**/*.ts' mocha test/deploy.ts",
     "preinstall": "npm install autodts",
     "postinstall": "autodts link",
@@ -63,6 +62,7 @@
     "fs-extra": "^0.30.0",
     "glob": "^7.0.6",
     "http-proxy": "^1.11.3",
+    "immutable": "^3.8.1",
     "jsonfile": "^2.2.3",
     "kexec": "^2.0.2",
     "node-http-proxy": "^0.2.3",

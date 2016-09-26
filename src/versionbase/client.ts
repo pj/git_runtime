@@ -9,25 +9,43 @@ export class Connection {
     ws: any
     active_defereds: any
     transaction_id: any
+
     constructor(ws) {
         this.ws = ws;
         this.active_defereds = {};
         this.transaction_id = null;
     }
 
-    createPromise() {
-        let deferred_id = uuid.v4();
+    create_message_id() {
+        return uuid.v4();
+    }
 
-        let deferred = q.defer():
+    createPromise() {
+        let deferred_id = this.create_message_id();
+
+        let deferred = q.defer();
         this.active_defereds[deferred_id] = deferred;
 
         return [deferred_id, deferred.promise];
     }
 
-    static connect(url = "localhost", port=9876) {
-        let ws = web_socket.WebSocket(`ws://${url}:${port}`);
+    // separated this out to make it easier to mock the socket.
+    static create_socket(url, port) {
+        return web_socket.WebSocket(`ws://${url}:${port}`);
+    }
 
-        let connection = new Connection(ws);
+    static bailout(connection, error) {
+        for (let k in connection.active_defereds) {
+            if (connection.active_defereds.hasOwnProperty(k)) {
+                connection.active_defereds[k].reject(error);
+            }
+        }
+    }
+
+    static connect(url = "localhost", port=9876) {
+        let ws = this.create_socket(url, port);
+
+        let connection = new this(ws);
         let [connection_id, connection_promise] = connection.createPromise();
 
         ws.on("open", function() {
@@ -44,44 +62,47 @@ export class Connection {
                     message_deferred.resolve(message.result);
                     delete connection.active_defereds[message.message_id];
                 } else {
-                    throw new Error("Server sent a response with a message_id that doesn't exist.");
+                    Connection.bailout(connection, new Error("Server sent a response with a message_id that doesn't exist."));
                 }
             } else {
-                throw new Error("Server sent a response without a message_id.");
+                Connection.bailout(connection, new Error("Server sent a response without a message_id."));
             }
         });
 
         ws.on("close", function (code, raw_message) {
             if (code === 1000) {
-                let message = JSON.parse(raw_message);
+                try {
+                    let message = JSON.parse(raw_message);
+                    if (message.hasOwnProperty("message_id")) {
+                        let message_deferred = connection.active_defereds[message.message_id];
 
-                if (message.hasOwnProperty("message_id")) {
-                    let message_deferred = connection.active_defereds[message.message_id];
-
-                    if (message_deferred) {
-                        message_deferred.resolve(message.result);
-                        delete connection.active_defereds[message.message_id];
+                        if (message_deferred) {
+                            message_deferred.resolve(message.result);
+                            delete connection.active_defereds[message.message_id];
+                        } else {
+                            Connection.bailout(connection, new Error("Server sent a response with a message_id that doesn't exist."));
+                        }
                     } else {
-                        throw new Error("Server sent a response with a message_id that doesn't exist.");
+                        Connection.bailout(connection, new Error("Server sent a response without a message_id."));
                     }
-                } else {
-                    throw new Error("Server sent a response without a message_id.");
+                } catch (e) {
+                    Connection.bailout(connection, e);
                 }
             } else {
-                throw new Error(`code: ${code} message: ${raw_message}`);
+                Connection.bailout(connection, new Error(`code: ${code} message: ${raw_message}`));
             }
         });
 
         ws.on("error", function (error) {
-            throw error;
+            Connection.bailout(connection, error);
         });
 
         return connection_promise;
     }
 
-    disconnect(connection) {
+    disconnect() {
         let [message_id, promise] = this.createPromise();
-        connection.ws.close(1000, {message_id: message_id, operation: "close"});
+        this.ws.close(1000, {message_id: message_id, operation: "close"});
         return promise;
     }
 
@@ -102,19 +123,19 @@ export class Connection {
     }
 
     get(item_id) {
-        return sendRequest("get", {item_id: item_id});
+        return this.sendRequest("get", {item_id: item_id});
     }
 
     create(data) {
-        return sendRequest("create", {data: data});
+        return this.sendRequest("create", {data: data});
     }
 
     update(item_id, data) {
-        return sendRequest("update", {item_id: item_id, data: data});
+        return this.sendRequest("update", {item_id: item_id, data: data});
     }
 
     delete(item_id) {
-        return sendRequest("delete", {item_id: item_id});
+        return this.sendRequest("delete", {item_id: item_id});
     }
 
     find(connection) {
@@ -125,24 +146,24 @@ export class Connection {
         if (this.transaction_id) {
             throw new Error("Transaction already started.");
         }
+        var message: any;
         if (snapshot_id) {
-            var message = {snapshot_id: snapshot_id};
+            message = {snapshot_id: snapshot_id};
         } else {
-            var message = {};
+            message = {};
         }
-        this.transaction_id = await sendRequest("begin", message);
-
-        await Promise.resolve(this.transaction_id);
+        this.transaction_id = await this.sendRequest("begin", message);
+        return this.transaction_id;
     }
 
     async commit() {
-        await sendRequest("commit");
+        await this.sendRequest("commit", {});
         this.transaction_id = null;
-        await Promise.resolve();
+        return null;
     }
 
-    rollback() {
-        await sendRequest("rollback");
+    async rollback() {
+        await this.sendRequest("rollback", {});
         this.transaction_id = null;
         await Promise.resolve();
     }
@@ -160,10 +181,10 @@ export class Connection {
     }
 
     snapshot() {
-        return sendRequest("create_snapshot");
+        return this.sendRequest("create_snapshot", {});
     }
 
     delete_snapshot(snapshot_id) {
-        return sendRequest("delete_snapshot", {snapshot_id: snapshot_id});
+        return this.sendRequest("delete_snapshot", {snapshot_id: snapshot_id});
     }
 }

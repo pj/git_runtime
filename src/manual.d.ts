@@ -33,3 +33,7 @@ declare module 'pm2' {
     export function stop(): any;
     export function killDaemon(): any;
 }
+
+declare interface ObjectConstructor {
+    assign(target: any, ...sources: any[]): any;
+}

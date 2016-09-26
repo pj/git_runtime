@@ -63,7 +63,7 @@ export function find_items(snapshots, project, select, reduce, version_id, trans
 
 export function create_version(snapshots, commit_id, parent_commit_id): Map<string, Map<string, any>> {
     // handle initial commit.
-    if (parent_commit_id === null) {
+    if (parent_commit_id === null || parent_commit_id === undefined) {
         // FIXME: git can apparently have multiple independent intial commits,
         // not sure if this should be allowed?
         var new_version = new Version({parent: null, version_id: commit_id});
@@ -107,10 +107,10 @@ export function rollback_transaction(snapshots, transaction_id) {
     return new_snapshots.delete(transaction_id);
 }
 
-export function create_snapshot(snapshots) {
+export function create_snapshot(snapshots, existing_snapshot_id) {
     let snapshot_id = uuid.v4();
 
-    let current_snapshot = snapshots.get("current");
+    let current_snapshot = snapshots.get(existing_snapshot_id);
     let new_snapshots = snapshots.set(snapshot_id, current_snapshot);
 
     return [new_snapshots, snapshot_id];

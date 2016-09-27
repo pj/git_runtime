@@ -1,7 +1,7 @@
 /// <reference path="../../typings/index.d.ts" />
 /// <reference path="../../typings/auto.d.ts" />
 /// <reference path="../manual.d.ts" />
-let web_socket = require('ws');
+let WebSocket = require('ws');
 let uuid = require('uuid');
 let q = require('q');
 
@@ -31,7 +31,7 @@ export class Connection {
 
     // separated this out to make it easier to mock the socket.
     static create_socket(url, port) {
-        return web_socket.WebSocket(`ws://${url}:${port}`);
+        return new WebSocket(`ws://${url}:${port}`);
     }
 
     static bailout(connection, error) {
@@ -102,17 +102,19 @@ export class Connection {
 
     disconnect() {
         let [message_id, promise] = this.createPromise();
-        this.ws.close(1000, {message_id: message_id, operation: "close"});
+        this.ws.close(1000, JSON.stringify({message_id: message_id, operation: "close"}));
         return promise;
     }
 
-    sendRequest(operation, values) {
+    sendRequest(operation, values, needs_commit_id=true) {
         let [message_id, promise] = this.createPromise();
         let message: any = {message_id: message_id, operation: operation};
-        if (process.env.LAZY_CLOUD_COMMIT_ID) {
-            message.version_id = process.env.LAZY_CLOUD_COMMIT_ID;
-        } else {
-            throw new Error("LAZY_CLOUD_COMMIT_ID environment variable must be set.");
+        if (needs_commit_id) {
+             if (process.env.LAZY_CLOUD_COMMIT_ID) {
+                message.version_id = process.env.LAZY_CLOUD_COMMIT_ID;
+            } else {
+                throw new Error("LAZY_CLOUD_COMMIT_ID environment variable must be set.");
+            }
         }
         if (this.transaction_id) {
             message.transaction_id = this.transaction_id;
@@ -186,5 +188,19 @@ export class Connection {
 
     delete_snapshot(snapshot_id) {
         return this.sendRequest("delete_snapshot", {snapshot_id: snapshot_id});
+    }
+
+    create_version(commit_id, parent_commit_id) {
+        let message;
+        if (parent_commit_id) {
+            message = {commit_id: commit_id, parent_commit_id: parent_commit_id};
+        } else {
+            message = {commit_id: commit_id};
+        }
+        return this.sendRequest("create_version", message, false);
+    }
+
+    version_exists(commit_id) {
+        return this.sendRequest("version_exists", {commit_id: commit_id}, false);
     }
 }

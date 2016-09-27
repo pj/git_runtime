@@ -2,6 +2,14 @@
 if git remote | grep lazycloud > /dev/null; then
     git push --all lazycloud
     commit_id=$(git rev-parse HEAD)
+    parent_commit_id=$(git rev-parse HEAD^)
+
+    if [ $? -eq 0 ]; then
+        node node_modules/.bin/add_version "$commit_id" "$parent_commit_id"
+    else
+        node node_modules/.bin/add_version "$commit_id"
+    fi
+
     repo_url=$(git remote get-url lazycloud)
     deploy_url="$(dirname "$repo_url")"
 

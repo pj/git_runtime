@@ -26,11 +26,13 @@ function execIf(pred, command): any {
     }
 }
 
-function create_process_def(commit_id, port) {
+function create_process_def(json, commit_id, port) {
+    var script = json['lazycloud'] && json['lazycloud']['script'] ? json['lazycloud']['script'] : "index.js";
+    console.log(json);
     return {
         "apps" : [{
             "name"        : "lazycloud - " + commit_id,
-            "script"      : "index.js",
+            "script"      : script,
             "node_args"   : "--harmony",
             "env"         : {
                 LAZY_CLOUD_COMMIT_ID: commit_id,
@@ -76,7 +78,7 @@ async function standard_deploy(deploy_path, commit_id, base_hostname, port) {
                  "npm run-script lazy_cloud:postdeploy");
     // start server
     await ppm2.connect();
-    await ppm2.start(create_process_def(commit_id, port));
+    await ppm2.start(create_process_def(json, commit_id, port));
 
     // wait for response
     await utils.wait_for_response(`http://${base_hostname}:${port}/lazy_cloud_heartbeat`);

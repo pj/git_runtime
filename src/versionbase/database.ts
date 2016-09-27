@@ -71,11 +71,19 @@ export function create_version(snapshots, commit_id, parent_commit_id): Map<stri
         //let current_snapshot = snapshots.get("current", Map());
         //let parent_version = current_snapshot.get(parent_commit_id);
         let parent_version = snapshots.getIn(["current", parent_commit_id]);
+        if (parent_version === undefined) {
+            throw new Error("parent commit does not exist");
+        }
         var new_version = new Version({parent: parent_version,
                                        version_id: commit_id,
                                        items: parent_version.items});
     }
+    //console.log(snapshots);
     return snapshots.setIn(["current", commit_id], new_version);
+}
+
+export function version_exists(snapshots, commit_id) {
+    return [snapshots, snapshots.hasIn(["current", commit_id])];
 }
 
 export function begin_transaction(snapshots, snapshot_id) {

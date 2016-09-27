@@ -20,8 +20,12 @@
   "files": [
     "lib"
   ],
+  "main": "dist/index.js",
   "bin": {
-    "lazycloud": "dist/lazycloud.js"
+    "lazycloud": "dist/lazycloud.js",
+    "versionbase": "dist/versionbase/versionbase.js",
+    "add_version": "dist/versionbase/scripts/add_version.js",
+    "add_all_versions": "dist/versionbase/scripts/add_all_versions.js"
   },
   "scripts": {
     "test": "mocha --compilers ts:ts-node/register,tsx:ts-node/register",

@@ -9,6 +9,11 @@
     "files": [
         "src/lazycloud.ts",
         "src/start_server.ts",
-        "src/database.ts"
+        "src/database.ts",
+        "src/index.ts",
+        "src/versionbase/versionbase.ts",
+        "src/versionbase/scripts/add_version.ts",
+        "src/versionbase/scripts/add_all_versions.ts",
+        "src/versionbase/client.ts"
     ]
 }

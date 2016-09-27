@@ -12,7 +12,6 @@ var readJSON = q.denodeify(jsonfile.readFile);
 
 // TODO: find better place for global defaults
 var DEFAULT_PROXY_PORT = 5555;
-var DEFAULT_PRODUCTION_PORT = 4444;
 var DEFAULT_PROXY_NAME = "lazycloud - proxy";
 
 function get_config_option(default_value, opts, config_file, cmd_option_name, config_option_name) {
@@ -45,8 +44,6 @@ function get_config_opts(deployment_path, opts) {
             };
             config_opts.proxy_port = get_config_option(DEFAULT_PROXY_PORT, opts, config_file,
                 'port', 'proxy_port');
-            config_opts.production_port = get_config_option(DEFAULT_PRODUCTION_PORT, opts, config_file,
-                'production', 'production_port');
             config_opts.proxy_name = get_config_option(DEFAULT_PROXY_NAME, opts, config_file,
                 'proxy-name', 'proxy_name');
             //console.log(config_opts);
@@ -61,6 +58,13 @@ function get_config_opts(deployment_path, opts) {
                 throw new Error("Base hostname must be in config file or passed on command line.");
             }
 
+            if (opts.commit) {
+                config_opts.production_commit = opts.commit;
+            } else if (config_file["production_commit"]){
+                config_opts.production_commit = config_file["production_commit"];
+            } else {
+                throw new Error("Production commit must be in config file or passed on command line.");
+            }
             return config_opts;
         });
 }
@@ -68,7 +72,7 @@ function get_config_opts(deployment_path, opts) {
 program
     .command("start [deployment_path]")
     .option("-p, --port", "Port for proxy server")
-    .option("-r, --production", "Port for production server")
+    .option("-c, --commit", "Commit id for production process")
     .option("-n, --name", "Name for proxy server process")
     .option("-b, --base", "Base hostname")
     .action(function(deployment_path, opts){
@@ -78,8 +82,8 @@ program
                     config_opts.proxy_name,
                     config_opts.deployment_path,
                     config_opts.proxy_port,
-                    config_opts.production_port,
-                    config_opts.base_hostname);
+                    config_opts.base_hostname,
+                    config_opts.production_commit);
             })
             .catch(function (err) {
                 console.log(err);
@@ -90,7 +94,7 @@ program
 program
     .command("restart [deployment_path]")
     .option("-p, --port", "Port for proxy server", 5555)
-    .option("-r, --production", "Port for production server", 4444)
+    .option("-c, --commit", "Commit id for production process")
     .option("-n, --name", "Name for proxy server process", "lazycloud - proxy")
     .action(function(deployment_path, opts){
         get_config_opts(deployment_path, opts)
@@ -99,8 +103,8 @@ program
                     config_opts.proxy_name,
                     config_opts.deployment_path,
                     config_opts.proxy_port,
-                    config_opts.production_port,
-                    config_opts.base_hostname);
+                    config_opts.base_hostname,
+                    config_opts.production_commit);
             })
             .catch(function (err) {
                 console.log(err);
@@ -139,7 +143,8 @@ program
             let lazycloud_json =
 `{
     "repository": "${repository}",
-    "base_hostname": "${hostname}"
+    "base_hostname": "${hostname}",
+    "production_commit" : null
 }`
             await fs.write('lazycloud.json', lazycloud_json);
         } catch (error) {

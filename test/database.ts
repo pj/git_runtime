@@ -25,7 +25,7 @@ var r = patch_rethinkdb(git_tree);
     //_original_run.bind(r)(connection, options, cb);
 //}
 
-describe("Version database", function () {
+describe.skip("Version database", function () {
     beforeEach(async function () {
         this.connection = await r.connect({host: 'localhost'});
         await r.tableCreate('test').run(this.connection);
@@ -70,7 +70,6 @@ describe("Version database", function () {
         var get_result = await r.table('test')
                                    .get(new_id)
                                    .run(this.connection);
-
         assert.isNotNull(get_result);
         assert.property(get_result, 'lazy_cloud_commit_id');
         assert.equal(get_result.lazy_cloud_commit_id, '1234');

@@ -8,8 +8,8 @@ if (process.argv.length < 6) {
 }
 
 start_lazycloud_server(
-        process.argv[2], // path to deployment
-        parseInt(process.argv[3]), // proxy port
-        parseInt(process.argv[4]), // production port
-        process.argv[5] // base hostname
+    process.argv[2], // path to deployment
+    parseInt(process.argv[3]), // proxy port
+    process.argv[4], // base hostname
+    process.argv[5] // production commit
 );

@@ -22,7 +22,8 @@ declare module 'fs-extra' {
 //}
 
 declare module 'jsonfile' {
-    export function readFile(): any;
+    export function readFile(foo: any): any;
+    export function readFileSync(foo: any): any;
 }
 
 declare module 'pm2' {

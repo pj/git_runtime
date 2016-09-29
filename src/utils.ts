@@ -134,6 +134,45 @@ export function wait_for_response(host){
     });
 }
 
+var WebSocket2 = require('ws');
+export function deploy_commit(commit_id, server_port) {
+    return new Promise(function (resolve, reject) {
+        var ws: any = new WebSocket2(`ws://localhost:${server_port}/lazy_cloud_admin/deployment/progress`);
+
+        ws.on('open', function () {
+            // start deploy
+            ws.send('DEPLOY ' + commit_id);
+        });
+
+        ws.on('message', function(data, flags) {
+            let [message_type, message] = data.split(" ");
+            if (message_type === "PROGRESS") {
+                //console.log(message);
+            } else if (message_type === "STARTED"){
+                //console.log("STARTED");
+            } else if (message_type === "ENDED") {
+                //console.log("ENDED");
+            } else {
+                reject(new Error("Unknown message: " + data));
+            }
+        });
+
+        ws.on('close', function(code, message) {
+            if (code !== 1000) {
+                reject(message);
+            } else {
+                //console.log(data);
+                resolve();
+            }
+        });
+
+        ws.on('error', function(data, flags) {
+            console.log(data);
+            reject(data);
+        });
+    });
+}
+
 // Various promiseified modules
 export const tmp:any = denodeifyAll(require("tmp"));
 //export const fse:any = denodeifyAll(require("fs-extra"));

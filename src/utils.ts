@@ -39,11 +39,11 @@ export function exec(command: string, options=null){
     proc.on('close', (code) => {
         let stdout = stdout_data.join("");
         let stderr = stderr_data.join("");
-        console.log("=======");
-        console.log(command);
-        console.log(stdout);
-        console.log("-------");
-        console.log(stderr);
+        //console.log("=======");
+        //console.log(command);
+        //console.log(stdout);
+        //console.log("-------");
+        //console.log(stderr);
 
         if (code !== 0) {
             deferred.reject(new Error("Process closed unexpectedly with code: " + code));

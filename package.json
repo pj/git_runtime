@@ -18,9 +18,8 @@
     "url": "git://github.com/mochajs/mocha.git"
   },
   "files": [
-    "lib"
+    "dist"
   ],
-  "main": "dist/index.js",
   "bin": {
     "lazycloud": "dist/lazycloud.js"
   },

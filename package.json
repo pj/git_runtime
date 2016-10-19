@@ -21,11 +21,13 @@
     "dist"
   ],
   "bin": {
-    "lazycloud": "dist/lazycloud.js"
+    "lazycloud": "dist/lazycloud.js",
+    "multiproxy_runner.js": "dist/multiproxy/runner.js"
   },
   "scripts": {
-    "test": "mocha --compilers ts:ts-node/register,tsx:ts-node/register",
-    "test:watch": "watch-run -i -p 'test/**/*.ts,src/**/*.ts' mocha test/deploy.ts",
+    "test": "mocha --colors --compilers ts:ts-node/register,tsx:ts-node/register",
+    "test:watch": "watch-run -i -p 'test/**/*.ts,src/**/*.ts' npm test",
+    "watch-run": "watch-run -i -p 'test/**/*.ts,src/**/*.ts'",
     "preinstall": "npm install autodts",
     "postinstall": "autodts link",
     "prepublish": "tsc && autodts generate"

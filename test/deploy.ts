@@ -20,6 +20,7 @@ import {deploy_commit} from '../src/deploy';
 import {commiterator, createTempRepo, createTempDeployment} from './test_helpers';
 import * as init from '../src/init';
 import * as utils from '../src/utils';
+import * as request from 'request';
 
 const package_json = `{
     "name": "lazycloud_test",
@@ -63,6 +64,7 @@ async function check_files(base_path, ...paths) {
 async function check_processes(...commit_ids) {
     await ppm2.connect();
     let processes: any = await ppm2.list();
+    console.log(processes.map(proc => proc.name));
     processes = processes.filter(process => process.name.indexOf('proxy') === -1);
     expect(processes).to.have.lengthOf(commit_ids.length);
     for (let process of processes) {
@@ -370,8 +372,6 @@ describe("Web socket deploy, update and start commits.", function () {
         await createTempRepo.bind(this)();
         await createTempDeployment.bind(this)();
         await utils.exec('tsc', {cwd: path.resolve(__dirname, '..')});
-        await start_proxy_process('lazycloud - proxy', this.deployment_path,
-                                  3000, 4000, 'lazycloud.test');
     });
 
     afterEach(function() {
@@ -386,20 +386,23 @@ describe("Web socket deploy, update and start commits.", function () {
             ["another commit", { 'package.json': package_json.replace(
                 '"scripts": {}', `"scripts": {\n"lazy_cloud:postdeploy": "touch blah.blah"\n    }`)}]
         );
-
-        await commits.next();
+        let first_commit_id = await commits.next();
         await check_files(this.repo_path, 'package.json', 'index.js');
 
         // pull changes into deployment.
         await utils.exec('git pull --all', {cwd: this.deploy_repo_path});
 
+        // have to start this here since we don't have the "production commit",
+        // till we've setup the repository.
+        await start_proxy_process('lazycloud - proxy', this.deployment_path,
+                                  3000, 'lazycloud.test', first_commit_id);
         await test_ws_deploy('master', async function () {
             // check code exists
             await check_files(path.resolve(this.deployment_path, 'commits', 'master'),
                               'package.json', 'index.js');
 
             // ...and process is running.
-            await check_processes('master')
+            await check_processes(first_commit_id, 'master');
         }.bind(this));
 
         // write second commit
@@ -417,7 +420,67 @@ describe("Web socket deploy, update and start commits.", function () {
                              'package.json', 'index.js', 'blah.blah');
 
             // ...and process is running.
-            await check_processes('master');
+            await check_processes('master', first_commit_id);
         }.bind(this));
     });
 });
+
+
+describe("Multiproxy", function () {
+    this.timeout(5000);
+    beforeEach(async function() {
+        await createTempRepo.bind(this)();
+        await createTempDeployment.bind(this)();
+        await utils.exec('tsc', {cwd: path.resolve(__dirname, '..')});
+        // configure multiproxy in lazycloud.json
+        const jsonpath = path.join(this.deployment_path, 'lazycloud.json');
+        let lazycloud_json = await utils.readJSON(jsonpath);
+        lazycloud_json["plugins"] = {
+            multiproxy: null
+        };
+        await utils.writeJSON(jsonpath, lazycloud_json);
+    });
+
+    afterEach(function() {
+        this.repo_cleanup();
+        this.deployment_cleanup();
+    });
+
+    it("records requests", async function () {
+        let commits = new commiterator (this.repo_path,
+            ["initial commit", { 'package.json': package_json,
+                                 'index.js': index_js }],
+            ["another commit", { 'package.json': package_json.replace(
+                '"scripts": {}', `"scripts": {\n"lazy_cloud:postdeploy": "touch blah.blah"\n    }`)}]
+        );
+        let first_commit_id = await commits.next();
+
+        // pull changes into deployment.
+        await utils.exec('git pull --all', {cwd: this.deploy_repo_path});
+
+        // have to start this here since we don't have the "production commit",
+        // till we've setup the repository.
+        await start_proxy_process('lazycloud - proxy', this.deployment_path,
+                                  3000, 'lazycloud.test', first_commit_id);
+
+        // send request to production.
+            request('http://lazycloud.test:3000', function (err, response, body){
+                if (err) {
+                    if (times < 5) {
+                        times += 1;
+                        return;
+                    } else {
+                        clearInterval(intervalId);
+                        reject(new Error("Host not responding"));
+                    }
+                } else {
+                    clearInterval(intervalId);
+                    resolve();
+                }
+            });
+
+        // check request was saved with snapshot id.
+    });
+});
+
+

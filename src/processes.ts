@@ -14,6 +14,8 @@ import * as path from 'path';
 import * as jsonfile from 'jsonfile';
 
 var uuid = require('uuid');
+var levelup = require('levelup');
+var Connection = require('versionbase').Connection;
 
 function get_commit_id(req, base_hostname) {
     var hostname = req.headers.host.split(':')[0];
@@ -37,74 +39,55 @@ function get_commit_id(req, base_hostname) {
     }
 }
 
-async function multi_proxying(req, base_hostname, server_port,
-                              proxy_treeish, process_list, test_id) {
-    // deploy and test all commits - can be run in parrllel
-    await Promise.all(proxy_treeish.map(async function (treeish) {
-        let commit = await utils.exec("git rev-parse " + treeish);
-        let found = process_list.filter((item) => item.name.indexOf(commit) != -1);
-        if (found.length === 0) {
-            await utils.deploy_commit(commit, server_port);
+async function default_proxying(req, res, next, base_hostname, production_commit,
+                          server_port, proxy, config, multiproxy_db,
+                          vb_connection) {
+    try {
+        let commit_id = get_commit_id(req, base_hostname);
+
+        // TODO: I'm expecting that the startup script will call the proxy
+        // server to start the production server... not sure if this is really the
+        // best approach.
+        if (commit_id === null) {
+            commit_id = production_commit;
         }
 
-        let result = await new Promise(function (resolve, reject) {
-            http.request({
-                hostname: req.hostname,
-                port: req.port,
-                path: req.path,
-                method: req.method,
-                headers: req.headers},
-                function (res) {
+        let multiproxying = commit_id === production_commit
+                                && config['plugins']
+                                && config['plugins']['multiproxy'];
 
-                });
-        });
+        // check if commit is already running.
+        await ppm2.connect();
+        let list = await ppm2.list();
+        let snapshot_id = null, multiproxy_test_id = null, headers = {};
+        if (multiproxying) {
+            multiproxy_test_id = uuid.v4();
+            req.mutliproxy_test_id = multiproxy_test_id;
+            // generate snapshot.
+            snapshot_id = await vb_connection.create_snapshot();
+            req.snapshot_id = snapshot_id;
+            headers["X-Lazy-Cloud-Snapshot-ID"] = snapshot_id;
+            headers["X-Lazy-Cloud-Multiproxy-Test"] = multiproxy_test_id;
+        }
 
-        // write result to db
-    }));
-}
+        let found = list.filter((item) => item.name.indexOf(commit_id) != -1);
+        if (found.length == 1 && found[0].pm2_env.status === 'online') {
+            proxy.web(req, res, {
+                target: `http://${base_hostname}:${found[0].pm2_env.LAZY_CLOUD_PORT}`,
+                headers: headers
+            });
+        } else {
+            // if isn't running then return splash page to start deploy.
+            res.render('deploy_progress', {
+                            commit_id: commit_id,
+                            url: `${base_hostname}:${server_port}`
+                        });
+        }
 
-function default_proxying(req, res, next, base_hostname, production_commit, server_port, proxy, config) {
-    var commit_id = get_commit_id(req, base_hostname);
-
-    // TODO: I'm expecting that the startup script will call the proxy
-    // server to start the production server... not sure if this is really the
-    // best approach.
-    if (commit_id === null) {
-        commit_id = production_commit;
+        await ppm2.disconnect();
+    } catch (e) {
+        next(e);
     }
-
-    // check if commit is already running.
-    ppm2.connect()
-        .then(_ => ppm2.list())
-        .then(function (list) {
-            // only mutliproxy if we are receiving a productikon request.
-            let multiproxying = commit_id === production_commit && config['plugins']
-                && config['plugins']['multiproxy'];
-            // generate a test id if we're multiproxying
-            if (multiproxying) {
-                var test_id = uuid.v4();
-                // generate snapshot.
-                // record results from production
-                proxy.on('proxyRes', function (proxyRes, req, res){
-
-                });
-            }
-
-            let found = list.filter((item) => item.name.indexOf(commit_id) != -1);
-            if (found.length == 1 && found[0].pm2_env.status === 'online') {
-                proxy.web(req, res, {target: `http://${base_hostname}:${found[0].pm2_env.LAZY_CLOUD_PORT}`});
-            } else {
-                // if isn't running then return splash page to start deploy.
-                res.render('deploy_progress', {commit_id: commit_id,
-                           url: `${base_hostname}:${server_port}`});
-            }
-            if (multiproxying) {
-                multi_proxying(req, base_hostname, server_port,
-                               config['plugins']['multiproxy'], list, test_id);
-            }
-        })
-        .then(_ => ppm2.disconnect())
-        .catch(err => next(err));
 }
 
 export default function start_lazycloud_server(deploy_path, server_port,
@@ -118,6 +101,7 @@ export default function start_lazycloud_server(deploy_path, server_port,
         express: app,
         noCache: true
     });
+
     // set .njk as the default extension
     app.set('view engine', 'njk');
 
@@ -130,9 +114,54 @@ export default function start_lazycloud_server(deploy_path, server_port,
 
     var proxy = httpProxy.createProxyServer();
 
+    // Record results from production.
+    let multiproxying = config['plugins'] && config['plugins']['multiproxy'];
+
+    let multiproxy_db;
+    let vb_connection;
+    if (multiproxying) {
+        vb_connection = Connection.connect();
+        multiproxy_db = levelup('multiproxy.db');
+        proxy.on('proxyRes', function (proxyRes, req, res) {
+            let snapshot_id = req.snapshot_id;
+            let multiproxy_test_id = req.multiproxy_test_id;
+            if (snapshot_id && multiproxy_test_id) {
+                let body_buffer = Buffer.from("");
+                proxyRes.on('data', function (chunk) {
+                    if (Buffer.isBuffer(chunk)) {
+                        chunk.copy(body_buffer);
+                    } else {
+                        body_buffer.write(chunk);
+                    }
+                });
+
+                proxyRes.on('end', function () {
+                    let test_doc = {
+                        doctype: "multiproxy",
+                        snapshot_id: snapshot_id,
+                        test_id: multiproxy_test_id,
+                        status_code: proxyRes.statusCode,
+                        body: body_buffer.toString()
+                    };
+
+                    multiproxy_db.put(multiproxy_test_id, test_doc, function (err, value) {
+                        if (err) {
+                            // not much we can do...
+                            console.error(err);
+                        }
+                    });
+                });
+
+                proxyRes.on('error', function (error) {
+                    console.error(error);
+                });
+            }
+        });
+    }
+
     app.all('/*', function (req, res, next) {
         default_proxying(req, res, next, base_hostname, production_commit,
-                     server_port, proxy, config);
+                     server_port, proxy, config, multiproxy_db, vb_connection);
     });
 
     return new Promise(function (resolve, reject) {

@@ -16,8 +16,6 @@ import * as EventEmitter from 'events';
 
 const mkdirp = q.nfbind(fse.mkdirp);
 
-var readJSON = q.denodeify(jsonfile.readFile);
-
 function execIf(pred, command): any {
     if (pred) {
         return utils.exec(command);
@@ -61,7 +59,7 @@ async function standard_deploy(myEmitter, deploy_path, commit_id, base_hostname,
 
     // open package.json so we can check whether the pre and post deploy
     // scripts exist.
-    let json = await readJSON("package.json");
+    let json = await utils.readJSON("package.json");
     // run predeploy
     myEmitter.emit('progress', 'Running predeploy script.');
     await execIf(json['scripts'] && json['scripts']['lazy_cloud:predeploy'],

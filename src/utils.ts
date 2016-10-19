@@ -4,6 +4,7 @@
 import * as q from 'q';
 import * as child_process from 'child_process';
 import * as fse from 'fs-extra';
+var jsonfile = require("jsonfile");
 
 export function exec(command: string, options=null){
     var deferred = q.defer();
@@ -39,11 +40,11 @@ export function exec(command: string, options=null){
     proc.on('close', (code) => {
         let stdout = stdout_data.join("");
         let stderr = stderr_data.join("");
-        console.log("=======");
-        console.log(command);
-        console.log(stdout);
-        console.log("-------");
-        console.log(stderr);
+        //console.log("=======");
+        //console.log(command);
+        //console.log(stdout);
+        //console.log("-------");
+        //console.log(stderr);
 
         if (code !== 0) {
             deferred.reject(new Error("Process closed unexpectedly with code: " + code));
@@ -179,3 +180,5 @@ export const tmp:any = denodeifyAll(require("tmp"));
 export const emptyDir:any = q.denodeify(fse.emptyDir);
 export const glob:any = q.denodeify(require("glob"));
 export var getPortAsync = q.denodeify(require("portfinder").getPort);
+export var readJSON = q.denodeify(jsonfile.readFile);
+export var writeJSON = q.denodeify(jsonfile.writeFile);

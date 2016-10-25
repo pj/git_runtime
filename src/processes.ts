@@ -56,8 +56,6 @@ async function default_proxying(req, res, next, base_hostname, production_commit
                                 && config['plugins']
                                 && config['plugins']['multiproxy'];
 
-        // check if commit is already running.
-        await ppm2.connect();
         let list = await ppm2.list();
         let snapshot_id = null, multiproxy_test_id = null, headers = {};
         if (multiproxying) {
@@ -83,8 +81,6 @@ async function default_proxying(req, res, next, base_hostname, production_commit
                             url: `${base_hostname}:${server_port}`
                         });
         }
-
-        await ppm2.disconnect();
     } catch (e) {
         next(e);
     }
@@ -164,9 +160,12 @@ export default function start_lazycloud_server(deploy_path, server_port,
                      server_port, proxy, config, multiproxy_db, vb_connection);
     });
 
-    return new Promise(function (resolve, reject) {
-        var server = app.listen(server_port);
-        server.on('error', err => reject(err));
-        server.on('listening', _ => resolve(server));
-    });
+    return ppm2.connect()
+        .then(function () {
+            return new Promise(function (resolve, reject) {
+                var server = app.listen(server_port);
+                server.on('error', err => reject(err));
+                server.on('listening', _ => resolve(server));
+            });
+        });
 }

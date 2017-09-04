@@ -28,6 +28,7 @@
     "test": "mocha --colors --compilers ts:ts-node/register,tsx:ts-node/register",
     "test:watch": "watch-run -i -p 'test/**/*.ts,src/**/*.ts' npm test",
     "watch-run": "watch-run -i -p 'test/**/*.ts,src/**/*.ts'",
+    "test:pgsql": "watchman-make -p '**/*.pgsql' --make='psql -d test -f test/database/postgres.pgsql' -t ''",
     "preinstall": "npm install autodts",
     "postinstall": "autodts link",
     "prepublish": "tsc && autodts generate"

@@ -77,7 +77,7 @@ ROLLBACK;
 
 -- test insert, select and delete
 BEGIN;
-  SELECT plan(1);
+  SELECT plan(6);
   SELECT lazycloud_add_version('A', '{}');
   SELECT lazycloud_add_version('B', '{"A"}');
   SELECT lazycloud_add_version('C', '{"B"}');
@@ -90,14 +90,42 @@ BEGIN;
   DELETE FROM lazycloud_test_table WHERE id = lastval();
 
   SELECT results_eq(
+    'SELECT lazycloud_version, name, lazycloud_tombstone FROM lazycloud_lazycloud_test_table',
+    $$VALUES ('C', 'billy', true)$$
+  );
+
+  SELECT results_ne(
     'SELECT lazycloud_version, name, lazycloud_tombstone FROM lazycloud_test_table',
     $$VALUES ('C', 'billy', true)$$
   );
+
+  SELECT is_empty(
+    'SELECT lazycloud_version, name, lazycloud_tombstone FROM lazycloud_test_table'
+  );
+
+  INSERT INTO lazycloud_test_table (name) VALUES ('rodney');
+
+  DELETE FROM lazycloud_test_table WHERE name = 'rodney';
+
+  SELECT results_eq(
+    'SELECT lazycloud_version, name, lazycloud_tombstone FROM lazycloud_lazycloud_test_table',
+    $$VALUES ('C', 'rodney', true)$$
+  );
+
+  SELECT results_ne(
+    'SELECT lazycloud_version, name, lazycloud_tombstone FROM lazycloud_test_table',
+    $$VALUES ('C', 'billy', true)$$
+  );
+
+  SELECT is_empty(
+    'SELECT lazycloud_version, name, lazycloud_tombstone FROM lazycloud_test_table'
+  );
+  SELECT * FROM finish();
 ROLLBACK;
 
 -- Test select
 BEGIN;
-  SELECT plan(1);
+  SELECT plan(4);
   SELECT lazycloud_add_version('A', '{}');
   SELECT lazycloud_add_version('B', '{"A"}');
   SELECT lazycloud_add_version('C', '{"B"}');
@@ -134,4 +162,6 @@ BEGIN;
     'SELECT * FROM lazycloud_test_table',
     $$VALUES (1, 'danny', 'D', false)$$
   );
+
+  SELECT * FROM finish();
 ROLLBACK;

@@ -1,4 +1,4 @@
-CREATE FUNCTION lazycloud_get_version()
+CREATE OR REPLACE FUNCTION lazycloud_get_version()
   RETURNS varchar
   LANGUAGE plpgsql
   AS $$
@@ -10,7 +10,7 @@ CREATE FUNCTION lazycloud_get_version()
     END;
   $$;
 
-CREATE FUNCTION lazycloud_create_version_tree_table()
+CREATE OR REPLACE FUNCTION lazycloud_create_version_tree_table()
   RETURNS void
   LANGUAGE plpgsql
   AS $$
@@ -22,7 +22,7 @@ CREATE FUNCTION lazycloud_create_version_tree_table()
     END;
   $$;
 
-CREATE FUNCTION lazycloud_add_version(id varchar, parents text[])
+CREATE OR REPLACE FUNCTION lazycloud_add_version(id varchar, parents text[])
   RETURNS void
   LANGUAGE plpgsql
   AS $$
@@ -31,7 +31,7 @@ CREATE FUNCTION lazycloud_add_version(id varchar, parents text[])
     END;
   $$;
 
-CREATE FUNCTION lazycloud_find_parent_recur(
+CREATE OR REPLACE FUNCTION lazycloud_find_parent_recur(
     versions hstore,
     version varchar
   )
@@ -63,7 +63,7 @@ CREATE FUNCTION lazycloud_find_parent_recur(
   END;
   $$;
 
-CREATE FUNCTION lazycloud_find_parent(
+CREATE OR REPLACE FUNCTION lazycloud_find_parent(
     tableName varchar,
     idColumn varchar,
     id bigint,
@@ -86,7 +86,7 @@ CREATE FUNCTION lazycloud_find_parent(
     END;
   $$;
 
-CREATE FUNCTION lazycloud_find_versions()
+CREATE OR REPLACE FUNCTION lazycloud_find_versions()
   RETURNS table(id varchar, parents hstore, version_order int)
   LANGUAGE plpgsql
   AS $$
@@ -104,7 +104,7 @@ CREATE FUNCTION lazycloud_find_versions()
     END;
   $$;
 
-CREATE FUNCTION lazycloud_row_trigger()
+CREATE OR REPLACE FUNCTION lazycloud_row_trigger()
   RETURNS trigger
   LANGUAGE plpgsql
   AS $$
@@ -149,7 +149,7 @@ CREATE FUNCTION lazycloud_row_trigger()
     END;
   $$;
 
-CREATE FUNCTION lazycloud_row_trigger_py()
+CREATE OR REPLACE FUNCTION lazycloud_row_trigger_py()
   RETURNS trigger
   LANGUAGE plpython3u
   AS $$
@@ -217,7 +217,7 @@ CREATE FUNCTION lazycloud_row_trigger_py()
       return None;
   $$;
 
-CREATE FUNCTION lazycloud_version_table()
+CREATE OR REPLACE FUNCTION lazycloud_version_table()
   RETURNS event_trigger
   LANGUAGE plpgsql
   AS $$
@@ -274,6 +274,7 @@ CREATE FUNCTION lazycloud_version_table()
     END;
   $$;
 
+DROP EVENT TRIGGER IF EXISTS lazycloud_version_table_trigger CASCADE;
 CREATE EVENT TRIGGER lazycloud_version_table_trigger
   ON ddl_command_end
   WHEN TAG IN ('CREATE TABLE')

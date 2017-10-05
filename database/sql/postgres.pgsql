@@ -112,8 +112,6 @@ CREATE OR REPLACE FUNCTION lazycloud_row_trigger()
       version_id varchar;
       existing_version varchar;
       existing_row record;
-      -- column_names varchar;
-      -- column_values
     BEGIN
       version_id := lazycloud_get_version();
       IF (TG_OP = 'DELETE') THEN
@@ -153,27 +151,29 @@ CREATE OR REPLACE FUNCTION lazycloud_row_trigger_py()
   RETURNS trigger
   LANGUAGE plpython3u
   AS $$
-    if TD['event'] == 'INSERT':
-      lazycloud_version_row = plpy.execute('select lazycloud_get_version()')
-      lazycloud_version = lazycloud_version_row[0]['lazycloud_get_version']
-      new_row = TD['new']
-      new_row.pop('id', None)
-      new_row['lazycloud_version'] = lazycloud_version
-      new_row['lazycloud_tombstone'] = False
-      col_names, col_values = zip(*new_row.items())
+    def prepare_row(row):
+      col_names, col_values = zip(*row.items())
       col_types_rows = plpy.execute("""
         select column_name, udt_name
         from information_schema.columns
         where table_name = 'lazycloud_{}'
       """.format(TD['table_name']));
-      col_mapping = dict(map(lambda r: (r['column_name'], r['udt_name']), col_types_rows))
+      col_mapping = dict(
+        map(lambda r: (r['column_name'], r['udt_name']), col_types_rows)
+      )
 
       col_types = []
       for n in col_names:
         col_types.append(col_mapping[n]);
 
-      insert_nums = ', '.join(map(lambda n: "$" + str(n+1), range(0, len(col_names))))
+      insert_nums = ', '.join(
+        map(lambda n: "$" + str(n+1), range(0, len(col_names)))
+      )
       col_names_joined = ', '.join(col_names)
+      return col_values, insert_nums, col_names_joined, col_types
+
+    def insert_row(row):
+      col_values, insert_nums, col_names_joined, col_types = prepare_row(row)
       query = 'INSERT INTO lazycloud_{} ({}) VALUES ({})'.format(
         TD['table_name'],
         col_names_joined,
@@ -181,40 +181,31 @@ CREATE OR REPLACE FUNCTION lazycloud_row_trigger_py()
       )
       query_plan = plpy.prepare(query, col_types)
       plpy.execute(query_plan, col_values)
+
+    lazycloud_version_row = plpy.execute('select lazycloud_get_version()')
+    lazycloud_version = lazycloud_version_row[0]['lazycloud_get_version']
+    if TD['event'] == 'INSERT':
+      new_row = TD['new']
+      new_row.pop('id', None)
+      new_row['lazycloud_version'] = lazycloud_version
+      new_row['lazycloud_tombstone'] = False
+      insert_row(new_row)
       return None;
     elif TD['event'] == 'DELETE':
-      lazycloud_version_row = plpy.execute('select lazycloud_get_version()')
-      lazycloud_version = lazycloud_version_row[0]['lazycloud_get_version']
       old_row = TD['old']
       if old_row['lazycloud_version'] == lazycloud_version:
+        # FIXME
         plpy.execute('UPDATE lazycloud_{} SET lazycloud_tombstone = true'.format(TD['table_name']))
       else:
         old_row['lazycloud_version'] = lazycloud_version
         # insert old row as tombstoned row
         old_row['lazycloud_tombstone'] = true
-        col_names, col_values = zip(*old_row.items())
-        col_types_rows = plpy.execute("""
-          select column_name, udt_name
-          from information_schema.columns
-          where table_name = 'lazycloud_{}'
-        """.format(TD['table_name']));
-        col_mapping = dict(map(lambda r: (r['column_name'], r['udt_name']), col_types_rows))
 
-        col_types = []
-        for n in col_names:
-          col_types.append(col_mapping[n]);
-
-        insert_nums = ', '.join(map(lambda n: "$" + str(n+1), range(0, len(col_names))))
-        col_names_joined = ', '.join(col_names)
-        query = 'INSERT INTO lazycloud_{} ({}) VALUES ({})'.format(
-          TD['table_name'],
-          col_names_joined,
-          insert_nums
-        )
-        query_plan = plpy.prepare(query, col_types)
-        plpy.execute(query_plan, col_values)
-
-      return None;
+        insert_row(old_row)
+      return None
+    elif TD['event'] == 'UPDATE':
+      #
+      return None
   $$;
 
 CREATE OR REPLACE FUNCTION lazycloud_version_table()

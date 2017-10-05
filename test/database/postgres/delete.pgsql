@@ -7,7 +7,7 @@ BEGIN;
 
   SELECT set_config('lazycloud.version_id', 'C', false);
 
-  INSERT INTO lazycloud_test_table (name) VALUES ('billy');
+  INSERT INTO lazycloud_lazycloud_test_table (lazycloud_version, name) VALUES ('C', 'billy');
 
   DELETE FROM lazycloud_test_table WHERE id = lastval();
 
@@ -25,7 +25,9 @@ BEGIN;
     'SELECT lazycloud_version, name, lazycloud_tombstone FROM lazycloud_test_table'
   );
 
-  INSERT INTO lazycloud_test_table (name) VALUES ('rodney');
+  DELETE FROM lazycloud_lazycloud_test_table WHERE name = 'billy';
+
+  INSERT INTO lazycloud_lazycloud_test_table (lazycloud_version, name) VALUES ('C', 'rodney');
 
   DELETE FROM lazycloud_test_table WHERE name = 'rodney';
 

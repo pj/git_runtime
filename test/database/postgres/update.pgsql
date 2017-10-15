@@ -10,7 +10,7 @@ BEGIN;
   -- update existing
   INSERT INTO lazycloud_lazycloud_test_table (lazycloud_version, name)
     VALUES ('C', 'billy');
-
+  --
   UPDATE lazycloud_test_table SET name = 'bobby' WHERE id=lastval();
   SELECT results_eq(
     'SELECT lazycloud_version, name FROM lazycloud_lazycloud_test_table',
@@ -26,7 +26,8 @@ BEGIN;
   SELECT set_config('lazycloud.version_id', 'D', false);
   UPDATE lazycloud_test_table SET name = 'blobby' WHERE id=lastval();
   SELECT results_eq(
-    'SELECT lazycloud_version, name FROM lazycloud_lazycloud_test_table',
+    'SELECT lazycloud_version, name FROM lazycloud_lazycloud_test_table
+      ORDER BY lazycloud_version',
     $$VALUES ('B', 'billy'), ('C', 'bobby'), ('D', 'blobby')$$
   );
   DELETE FROM lazycloud_lazycloud_test_table;
@@ -67,8 +68,10 @@ BEGIN;
   SELECT set_config('lazycloud.version_id', 'C', false);
   UPDATE lazycloud_test_table SET name = 'robby';
   SELECT results_eq(
-    'SELECT lazycloud_version, name FROM lazycloud_lazycloud_test_table',
-    $$VALUES ('A', 'billy'), ('D', 'blobby'), ('C', 'robby'), ('C', 'robby')$$
+    'SELECT lazycloud_version, name FROM lazycloud_lazycloud_test_table
+      ORDER BY lazycloud_version',
+    $$VALUES ('A', 'billy'), ('C', 'robby'), ('C', 'robby'), ('D', 'blobby')$$
+    -- $$VALUES ('C', 'robby'), ('C', 'robby'), ('C', 'robby'), ('C', 'robby')$$
   );
   DELETE FROM lazycloud_lazycloud_test_table;
 

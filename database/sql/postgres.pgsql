@@ -151,6 +151,8 @@ CREATE OR REPLACE FUNCTION lazycloud_row_trigger_py()
   RETURNS trigger
   LANGUAGE plpython3u
   AS $$
+    # current_state = plpy.execute("""select * from lazycloud_lazycloud_test_table""")
+    # plpy.notice(current_state)
     def prepare_row(row):
       col_names, col_values = zip(*row.items())
       col_types_rows = plpy.execute("""
@@ -166,19 +168,43 @@ CREATE OR REPLACE FUNCTION lazycloud_row_trigger_py()
       for n in col_names:
         col_types.append(col_mapping[n]);
 
-      insert_nums = ', '.join(
-        map(lambda n: "$" + str(n+1), range(0, len(col_names)))
-      )
-      col_names_joined = ', '.join(col_names)
-      return col_values, insert_nums, col_names_joined, col_types
+      insert_nums = map(lambda n: "$" + str(n+1), range(0, len(col_names)))
+      return col_values, insert_nums, col_names, col_types, col_mapping
 
     def insert_row(row):
-      col_values, insert_nums, col_names_joined, col_types = prepare_row(row)
+      col_values, insert_nums, col_names, col_types, _ = prepare_row(row)
+      insert_nums_joined = ', '.join(insert_nums)
+      col_names_joined = ', '.join(col_names)
       query = 'INSERT INTO lazycloud_{} ({}) VALUES ({})'.format(
         TD['table_name'],
         col_names_joined,
-        insert_nums
+        insert_nums_joined
       )
+      query_plan = plpy.prepare(query, col_types)
+      plpy.execute(query_plan, col_values)
+
+    def update_row(row):
+      col_values, insert_nums, col_names, col_types, col_mapping = prepare_row(row)
+
+      col_names = list(col_names)
+      insert_nums = list(insert_nums)
+      assigns = map(lambda x: "{} = {}".format(x[0], x[1]), zip(col_names, insert_nums))
+      insert_len = len(list(insert_nums))
+
+      assigns_joined = ', '.join(assigns)
+
+      query = 'UPDATE lazycloud_{} SET {} WHERE id = {} AND lazycloud_version = {}'.format(
+        TD['table_name'],
+        assigns_joined,
+        '${}'.format(insert_len + 1),
+        '${}'.format(insert_len + 2),
+      )
+
+      col_values = list(col_values)
+      col_types.append(col_mapping['id'])
+      col_values.append(row['id'])
+      col_types.append(col_mapping['lazycloud_version'])
+      col_values.append(row['lazycloud_version'])
       query_plan = plpy.prepare(query, col_types)
       plpy.execute(query_plan, col_values)
 
@@ -195,7 +221,9 @@ CREATE OR REPLACE FUNCTION lazycloud_row_trigger_py()
       old_row = TD['old']
       if old_row['lazycloud_version'] == lazycloud_version:
         # FIXME
-        plpy.execute('UPDATE lazycloud_{} SET lazycloud_tombstone = true'.format(TD['table_name']))
+        plpy.execute('UPDATE lazycloud_{} SET lazycloud_tombstone = true'.format(
+          TD['table_name'])
+        )
       else:
         old_row['lazycloud_version'] = lazycloud_version
         # insert old row as tombstoned row
@@ -204,7 +232,19 @@ CREATE OR REPLACE FUNCTION lazycloud_row_trigger_py()
         insert_row(old_row)
       return None
     elif TD['event'] == 'UPDATE':
-      #
+      new_row = TD['new']
+
+      # plpy.notice('---------------')
+      # plpy.notice(TD['old'])
+      # plpy.notice(new_row)
+      if new_row['lazycloud_version'] == lazycloud_version:
+        update_row(new_row)
+      else:
+        new_row['lazycloud_version'] = lazycloud_version
+        insert_row(new_row)
+      # current_state = plpy.execute("""select * from lazycloud_lazycloud_test_table""")
+      # plpy.notice(current_state)
+
       return None
   $$;
 
@@ -235,11 +275,30 @@ CREATE OR REPLACE FUNCTION lazycloud_version_table()
           CONTINUE;
         END IF;
 
+        -- SELECT column_name, udt_name
+        --   FROM information_schema.columns
+        --   WHERE createdTable.object_identity;
+        -- 
+        -- EXECUTE 'SELECT ' ||
+        --   'c.column_name, c.data_type ' ||
+        --   'FROM information_schema.table_constraints tc ' ||
+        --   'JOIN information_schema.constraint_column_usage AS ccu ' ||
+        --     'USING (constraint_schema, constraint_name) '  ||
+        --   'JOIN information_schema.columns AS c ' ||
+        --     'ON c.table_schema = tc.constraint_schema ' ||
+        --       'AND tc.table_name = c.table_name ' ||
+        --       'AND ccu.column_name = c.column_name ' ||
+        --   'WHERE constraint_type = "PRIMARY KEY" ' ||
+        --     'AND tc.table_schema = ' || schemaName ||
+        --     'AND tc.table_name = ' || tableName;
+
         EXECUTE 'ALTER TABLE ' || createdTable.object_identity
           || ' ADD COLUMN lazycloud_version text';
 
         EXECUTE 'ALTER TABLE ' || createdTable.object_identity
           || ' ADD COLUMN lazycloud_tombstone boolean NOT NULL DEFAULT false';
+
+        -- EXECUTE 'ALTER TABLE ' || tableName || ' ADD PRIMARY KEY (id)';
 
         EXECUTE 'ALTER TABLE ' || tableName ||
           ' RENAME TO lazycloud_' || tableName;

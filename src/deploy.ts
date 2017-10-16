@@ -1,5 +1,3 @@
-/// <reference path="../typings/index.d.ts" />
-/// <reference path="../typings/auto.d.ts" />
 /// <reference path="manual.d.ts" />
 /**
   * @file Deployment related functions
@@ -11,7 +9,7 @@ import * as fsn from 'fs';
 import * as q from 'q';
 import * as jsonfile from 'jsonfile';
 import * as utils from './utils';
-import * as ppm2 from './ppm2';
+import * as ppm2 from './promisify/ppm2';
 import * as EventEmitter from 'events';
 
 const mkdirp = q.nfbind(fse.mkdirp);

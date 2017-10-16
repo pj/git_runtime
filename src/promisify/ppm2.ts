@@ -1,6 +1,4 @@
-/// <reference path="../typings/index.d.ts" />
-/// <reference path="../typings/auto.d.ts" />
-/// <reference path="manual.d.ts" />
+/// <reference path="../manual.d.ts" />
 import * as pm2 from 'pm2';
 import * as denodeify from 'denodeify';
 

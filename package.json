@@ -28,16 +28,14 @@
     "test": "mocha --colors --compilers ts:ts-node/register,tsx:ts-node/register",
     "test:watch": "watch-run -i -p 'test/**/*.ts,src/**/*.ts' npm test",
     "watch-run": "watch-run -i -p 'test/**/*.ts,src/**/*.ts'",
-    "test:pgsql": "watchman-make -p '**/*.pgsql' --make='./test/database/postgres/runpg.sh' -t '' ",
-    "preinstall": "npm install autodts",
-    "postinstall": "autodts link",
-    "prepublish": "tsc && autodts generate"
+    "test:pgsql": "watchman-make -p '**/*.pgsql' --make='./test/database/postgres/runpg.sh' -t '' "
   },
   "typescript": {
     "definition": "index.d.ts"
   },
   "devDependencies": {
     "@lib/autodts-generator": "~0.0.1",
+    "@types/node": "^8.0.34",
     "chai": "~3.5.0",
     "chai-as-promised": "^5.1.0",
     "child-process-promise": "^2.1.2",
@@ -80,7 +78,7 @@
     "rethinkdb": "^2.3.2",
     "sinon": "^1.17.6",
     "ts-node": "^1.2.3",
-    "typescript": "^1.8.10",
+    "typescript": "^2.5.0",
     "uuid": "^2.0.2",
     "ws": "^1.1.1"
   }

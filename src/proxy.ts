@@ -1,7 +1,7 @@
 /**
   * @file Starts and stops the lazy cloud proxy process.
   */
-import * as ppm2 from './ppm2';
+import * as ppm2 from './promisify/ppm2';
 import * as path from 'path';
 import * as utils from './utils';
 

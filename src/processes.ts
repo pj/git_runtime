@@ -9,7 +9,7 @@ import * as nunjucks from 'nunjucks';
 import * as utils from './utils';
 import {deploy_commit} from './deploy';
 import * as admin from './admin';
-import * as ppm2 from './ppm2';
+import * as ppm2 from './promisify/ppm2';
 import * as path from 'path';
 import * as jsonfile from 'jsonfile';
 

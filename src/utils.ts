@@ -4,6 +4,7 @@
 import * as q from 'q';
 import * as child_process from 'child_process';
 import * as fse from 'fs-extra';
+import * as request from 'request';
 var jsonfile = require("jsonfile");
 
 export function exec(command: string, options=null){
@@ -174,6 +175,31 @@ export function deploy_commit(commit_id, server_port) {
     });
 }
 
+// Wait for a response from the host
+export function wait_for_response(host){
+    var deferred = q.defer();
+    var times = 0;
+    var intervalId;
+    intervalId = setInterval(function () {
+        request(host, function (err, response, body){
+            if (err) {
+                if (times < 5) {
+                    times += 1;
+                    return;
+                } else {
+                    deferred.reject(new Error("Host not responding"));
+                    clearInterval(intervalId);
+                    return;
+                }
+            } else {
+                deferred.resolve();
+                clearInterval(intervalId);
+            }
+        });
+    }, 200);
+
+    return deferred.promise;
+}
 // Various promiseified modules
 export const tmp:any = denodeifyAll(require("tmp"));
 //export const fse:any = denodeifyAll(require("fs-extra"));

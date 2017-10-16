@@ -5,3 +5,4 @@ typings
 *.swp
 npm-debug.log
 dist
+tags

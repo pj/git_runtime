@@ -63,6 +63,7 @@ CREATE OR REPLACE FUNCTION lazycloud_find_parent_recur(
   END;
   $$;
 
+-- FIXME: Replace with recursive CTE.
 CREATE OR REPLACE FUNCTION lazycloud_find_parent(
     tableName varchar,
     idColumn varchar,
@@ -93,72 +94,72 @@ CREATE OR REPLACE FUNCTION lazycloud_find_versions()
     BEGIN
       RETURN QUERY WITH RECURSIVE versions(id, parents, version_order) AS (
           SELECT lazycloud_version_tree.id, lazycloud_version_tree.parents, 0
-          FROM lazycloud_version_tree
-          WHERE lazycloud_version_tree.id = lazycloud_get_version()
+            FROM lazycloud_version_tree
+            WHERE lazycloud_version_tree.id = lazycloud_get_version()
         UNION
-          SELECT lazycloud_version_tree.id, lazycloud_version_tree.parents, versions.version_order + 1
-          FROM lazycloud_version_tree, versions
-          WHERE versions.parents ? lazycloud_version_tree.id
+          SELECT lazycloud_version_tree.id, lazycloud_version_tree.parents,
+              versions.version_order + 1
+            FROM lazycloud_version_tree, versions
+            WHERE versions.parents ? lazycloud_version_tree.id
         )
         SELECT * from versions;
     END;
   $$;
 
-CREATE OR REPLACE FUNCTION lazycloud_row_trigger()
-  RETURNS trigger
-  LANGUAGE plpgsql
-  AS $$
-    DECLARE
-      version_id varchar;
-      existing_version varchar;
-      existing_row record;
-    BEGIN
-      version_id := lazycloud_get_version();
-      IF (TG_OP = 'DELETE') THEN
-        -- If row with this version doesn't exist, insert tombstone'd row
-        -- else delete.
-        RETURN OLD;
-      ELSIF (TG_OP = 'UPDATE') THEN
-        -- insert row if one already exists.
-        -- existing_version = lazycloud_find_parent();
-        --
-        -- IF existing_version IS NULL THEN
-        --   RETURN NULL;
-        -- ELSE
-        --   NEW.lazycloud_version := version_id;
-        --   RETURN NEW;
-        -- END IF;
-        RETURN NEW;
-      ELSIF (TG_OP = 'INSERT') THEN
-        -- check that there is no parent id for this
-        -- set version id
-        -- column_names := 'lazycloud_version';
-        -- FOR k,v IN select key,value from each(hstore(NEW)) LOOP
-        --
-        -- END LOOP;
-        NEW.lazycloud_version := version_id;
-        RAISE NOTICE '%', NEW;
-        RAISE NOTICE '%', hstore(NEW);
-        RAISE NOTICE '%', TG_TABLE_NAME;
-        RAISE NOTICE '%', TG_ARGV;
-        EXECUTE 'INSERT INTO ' || TG_TABLE_NAME || NEW.*;
-        RETURN NEW;
-      END IF;
-    END;
-  $$;
+-- FIXME: Replace python version with plpgsql version.
+-- CREATE OR REPLACE FUNCTION lazycloud_row_trigger()
+--   RETURNS trigger
+--   LANGUAGE plpgsql
+--   AS $$
+--     DECLARE
+--       version_id varchar;
+--       existing_version varchar;
+--       existing_row record;
+--     BEGIN
+--       version_id := lazycloud_get_version();
+--       IF (TG_OP = 'DELETE') THEN
+--         -- If row with this version doesn't exist, insert tombstone'd row
+--         -- else delete.
+--         RETURN OLD;
+--       ELSIF (TG_OP = 'UPDATE') THEN
+--         -- insert row if one already exists.
+--         -- existing_version = lazycloud_find_parent();
+--         --
+--         -- IF existing_version IS NULL THEN
+--         --   RETURN NULL;
+--         -- ELSE
+--         --   NEW.lazycloud_version := version_id;
+--         --   RETURN NEW;
+--         -- END IF;
+--         RETURN NEW;
+--       ELSIF (TG_OP = 'INSERT') THEN
+--         -- check that there is no parent id for this
+--         -- set version id
+--         -- column_names := 'lazycloud_version';
+--         -- FOR k,v IN select key,value from each(hstore(NEW)) LOOP
+--         --
+--         -- END LOOP;
+--         NEW.lazycloud_version := version_id;
+--         RAISE NOTICE '%', NEW;
+--         RAISE NOTICE '%', hstore(NEW);
+--         RAISE NOTICE '%', TG_TABLE_NAME;
+--         RAISE NOTICE '%', TG_ARGV;
+--         EXECUTE 'INSERT INTO ' || TG_TABLE_NAME || NEW.*;
+--         RETURN NEW;
+--       END IF;
+--     END;
+--   $$;
 
 CREATE OR REPLACE FUNCTION lazycloud_row_trigger_py()
   RETURNS trigger
   LANGUAGE plpython3u
   AS $$
-    # current_state = plpy.execute("""select * from lazycloud_lazycloud_test_table""")
-    # plpy.notice(current_state)
     def prepare_row(row):
       col_names, col_values = zip(*row.items())
       col_types_rows = plpy.execute("""
-        select column_name, udt_name
-        from information_schema.columns
-        where table_name = 'lazycloud_{}'
+        SELECT column_name, udt_name
+        FROM information_schema.columns
+        WHERE table_name = 'lazycloud_{}'
       """.format(TD['table_name']));
       col_mapping = dict(
         map(lambda r: (r['column_name'], r['udt_name']), col_types_rows)
@@ -188,11 +189,18 @@ CREATE OR REPLACE FUNCTION lazycloud_row_trigger_py()
 
       col_names = list(col_names)
       insert_nums = list(insert_nums)
-      assigns = map(lambda x: "{} = {}".format(x[0], x[1]), zip(col_names, insert_nums))
+      assigns = map(
+        lambda x: "{} = {}".format(
+          x[0],
+          x[1]
+        ),
+        zip(col_names, insert_nums)
+      )
       insert_len = len(list(insert_nums))
 
       assigns_joined = ', '.join(assigns)
 
+      # FIXME: handle primary key correctly.
       query = 'UPDATE lazycloud_{} SET {} WHERE id = {} AND lazycloud_version = {}'.format(
         TD['table_name'],
         assigns_joined,
@@ -201,6 +209,7 @@ CREATE OR REPLACE FUNCTION lazycloud_row_trigger_py()
       )
 
       col_values = list(col_values)
+      # FIXME: handle primary key correctly.
       col_types.append(col_mapping['id'])
       col_values.append(row['id'])
       col_types.append(col_mapping['lazycloud_version'])
@@ -217,34 +226,27 @@ CREATE OR REPLACE FUNCTION lazycloud_row_trigger_py()
       new_row['lazycloud_tombstone'] = False
       insert_row(new_row)
       return None;
+
     elif TD['event'] == 'DELETE':
       old_row = TD['old']
       if old_row['lazycloud_version'] == lazycloud_version:
-        # FIXME
+        # FIXME: handle primary key correctly.
         plpy.execute('UPDATE lazycloud_{} SET lazycloud_tombstone = true'.format(
           TD['table_name'])
         )
       else:
         old_row['lazycloud_version'] = lazycloud_version
-        # insert old row as tombstoned row
         old_row['lazycloud_tombstone'] = true
-
         insert_row(old_row)
       return None
+
     elif TD['event'] == 'UPDATE':
       new_row = TD['new']
-
-      # plpy.notice('---------------')
-      # plpy.notice(TD['old'])
-      # plpy.notice(new_row)
       if new_row['lazycloud_version'] == lazycloud_version:
         update_row(new_row)
       else:
         new_row['lazycloud_version'] = lazycloud_version
         insert_row(new_row)
-      # current_state = plpy.execute("""select * from lazycloud_lazycloud_test_table""")
-      # plpy.notice(current_state)
-
       return None
   $$;
 
@@ -275,10 +277,11 @@ CREATE OR REPLACE FUNCTION lazycloud_version_table()
           CONTINUE;
         END IF;
 
+        -- FIXME: handle primary keys.
         -- SELECT column_name, udt_name
         --   FROM information_schema.columns
         --   WHERE createdTable.object_identity;
-        -- 
+        --
         -- EXECUTE 'SELECT ' ||
         --   'c.column_name, c.data_type ' ||
         --   'FROM information_schema.table_constraints tc ' ||

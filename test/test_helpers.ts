@@ -4,8 +4,8 @@ import * as path from 'path';
 
 var fs = require("q-io/fs");
 
-import * as ppm2 from "../src/ppm2";
-import * as fse from '../src/fs-extra';
+import * as ppm2 from "../src/promisify/ppm2";
+import * as fse from '../src/promisify/fs-extra';
 
 import * as utils from '../src/utils';
 import * as init from '../src/init';

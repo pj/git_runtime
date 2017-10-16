@@ -1,5 +1,3 @@
-/// <reference path="../typings/index.d.ts" />
-/// <reference path="../typings/auto.d.ts" />
 /// <reference path="../src/manual.d.ts" />
 import * as chai from "chai";
 var assert = chai.assert;
@@ -11,8 +9,8 @@ import * as path from 'path';
 
 var fs = require("q-io/fs");
 
-import * as ppm2 from "../src/ppm2";
-import * as fse from '../src/fs-extra';
+import * as ppm2 from "../src/promisify/ppm2";
+import * as fse from '../src/promisify/fs-extra';
 
 import {start_proxy_process, restart_proxy_process, stop_proxy_process} from
     '../src/proxy';

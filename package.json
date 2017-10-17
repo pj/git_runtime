@@ -52,6 +52,7 @@
     "watch-run": "^1.2.4"
   },
   "dependencies": {
+    "@types/fs-extra": "^4.0.2",
     "autodts": "0.0.6",
     "body-parser": "^1.15.2",
     "child-process-promise": "^2.0.2",
@@ -62,7 +63,7 @@
     "express": "^4.14.0",
     "express-session": "^1.14.0",
     "express-ws": "^2.0.0",
-    "fs-extra": "^0.30.0",
+    "fs-extra": "^4.0.0",
     "glob": "^7.0.6",
     "http-proxy": "^1.11.3",
     "immutable": "^3.8.1",

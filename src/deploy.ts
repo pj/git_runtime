@@ -3,16 +3,12 @@
   * @file Deployment related functions
   */
 import * as path from 'path';
-import * as fs from 'q-io/fs';
 import * as fse from 'fs-extra';
-import * as fsn from 'fs';
 import * as q from 'q';
 import * as jsonfile from 'jsonfile';
 import * as utils from './utils';
-import * as ppm2 from './promisify/ppm2';
+import * as pm2 from 'pm2';
 import * as EventEmitter from 'events';
-
-const mkdirp = q.nfbind(fse.mkdirp);
 
 function execIf(pred, command): any {
     if (pred) {
@@ -38,8 +34,8 @@ function create_process_def(json, commit_id, port) {
 }
 
 async function commit_is_running(commit_id) {
-    await ppm2.connect();
-    let list: any = await ppm2.list();
+    await pm2.connect();
+    let list: any = await pm2.list();
     var found = list.filter((item) => item.name.indexOf(commit_id) != -1);
 
     if (found.length === 0) {
@@ -74,9 +70,9 @@ async function standard_deploy(myEmitter, deploy_path, commit_id, base_hostname,
     await execIf(json['scripts'] && json['scripts']['lazy_cloud:postdeploy'],
                  "npm run-script lazy_cloud:postdeploy");
     // start server
-    await ppm2.connect();
+    await pm2.connect();
     myEmitter.emit('progress', 'Starting process.');
-    await ppm2.start(create_process_def(json, commit_id, port));
+    await pm2.start(create_process_def(json, commit_id, port));
 
     // wait for response
     myEmitter.emit('progress', 'Waiting for process response.');
@@ -137,36 +133,45 @@ async function deploy_new_commit(myEmitter, source_repo_path, clone_path, base_h
     await standard_deploy(myEmitter, clone_path, treeish, base_hostname, new_port);
 }
 
-async function deploy_process_running(myEmitter, ppm2_process, clone_path, base_hostname, treeish) {
+async function deploy_process_running(myEmitter, pm2_process, clone_path, base_hostname, treeish) {
     let need_update = await needs_update(clone_path);
     if (!need_update) {
         // Nothing has changed so just return
         // the port for proxying.
         myEmitter.emit('progress', 'code unchanged proxying');
-        return Promise.resolve(ppm2_process.pm2_env.LAZY_CLOUD_PORT);
+        return pm2_process.pm2_env.LAZY_CLOUD_PORT;
     } else {
         // stop current process.
-        await ppm2.connect();
+        await pm2.connect();
         myEmitter.emit('progress', 'code changed stopping existing process.');
-        await ppm2.deleteProcess(ppm2_process.name);
+        await pm2['delete'](pm2_process.name);
         // reset and pull
         await reset_and_pull_repo(myEmitter, clone_path, treeish);
-        await standard_deploy(myEmitter, clone_path, treeish,
-                              base_hostname,
-                              ppm2_process.pm2_env.LAZY_CLOUD_PORT);
+        await standard_deploy(
+          myEmitter,
+          clone_path,
+          treeish,
+          base_hostname,
+          pm2_process.pm2_env.LAZY_CLOUD_PORT
+        );
     }
 }
 
-async function deploy_process_errored(myEmitter, ppm2_process, clone_path, base_hostname, treeish) {
+async function deploy_process_errored(myEmitter, pm2_process, clone_path, base_hostname, treeish) {
     // stop current process.
-    await ppm2.connect();
-    await ppm2.deleteProcess(ppm2_process.name);
+    await pm2.connect();
+    await pm2['delete'](pm2_process.name);
     // reset and pull
     await reset_and_pull_repo(myEmitter, clone_path, treeish);
-    await standard_deploy(myEmitter, clone_path, treeish,
-                          base_hostname,
-                          ppm2_process.pm2_env.LAZY_CLOUD_PORT);
+    await standard_deploy(
+      myEmitter,
+      clone_path,
+      treeish,
+      base_hostname,
+      pm2_process.pm2_env.LAZY_CLOUD_PORT
+    );
 }
+
 async function deploy_process_not_running(myEmitter, clone_path, base_hostname, treeish) {
     // clean and fast forward directory before deploying.
     process.chdir(clone_path);
@@ -180,43 +185,74 @@ async function deploy_process_not_running(myEmitter, clone_path, base_hostname, 
 // Returns an event emitter, since I want to decouple this from
 // what controls the deploy process.
 export function deploy_commit(deploy_path, base_hostname, treeish) {
-    var myEmitter = new (EventEmitter as any)();
-    var source_repo_path = path.resolve(deploy_path, 'repo');
-    var clone_path = path.resolve(deploy_path, "commits", treeish);
-    fsn.stat(clone_path, function(err, stat) {
-        myEmitter.emit('start', source_repo_path, clone_path, treeish);
-        if (err) {
-            myEmitter.emit('progress', 'Cloning code.');
-            deploy_new_commit(myEmitter, source_repo_path, clone_path, base_hostname, treeish)
-                .then(_ => myEmitter.emit('end'))
-                .catch(err => myEmitter.emit('error', err));
-        } else {
-            if (stat.isDirectory()) {
-                myEmitter.emit('progress', 'already checked out seeing if we need to update');
+    const myEmitter = new (EventEmitter as any)();
+    const source_repo_path = path.resolve(deploy_path, 'repo');
+    const clone_path = path.resolve(deploy_path, "commits", treeish);
+    process.nextTick(async function() {
+      myEmitter.emit('start', source_repo_path, clone_path, treeish);
+      try {
+        const stat = await fse.stat(clone_path);
+        if (stat.isDirectory()) {
+          myEmitter.emit(
+            'progress',
+            'already checked out seeing if we need to update'
+          );
 
-                commit_is_running(treeish)
-                    .then(function (ppm2_process){
-                        if (ppm2_process) {
-                            if (ppm2_process.pm2_env.status ==='online') {
-                                myEmitter.emit('progress',
-                                   'Commit already running');
-                                return deploy_process_running(myEmitter, ppm2_process, clone_path, base_hostname, treeish);
-                            } else {
-                                myEmitter.emit('progress',
-                                   'Commit errored restarting');
-                                return deploy_process_errored(myEmitter, ppm2_process, clone_path, base_hostname, treeish);
-                            }
-                        } else {
-                            myEmitter.emit('progress',
-                               'Commit not already running');
-                            return deploy_process_not_running(myEmitter, clone_path, base_hostname, treeish);
-                        }})
-                    .then(_ => myEmitter.emit('end'))
-                    .catch(err => myEmitter.emit('error', err));
+          try {
+            const pm2_process = await commit_is_running(treeish);
+            if (pm2_process) {
+              if (pm2_process.pm2_env.status ==='online') {
+                myEmitter.emit('progress', 'Commit already running');
+                await deploy_process_running(
+                  myEmitter,
+                  pm2_process,
+                  clone_path,
+                  base_hostname,
+                  treeish
+                );
+              } else {
+                myEmitter.emit('progress', 'Commit errored restarting');
+                await deploy_process_errored(
+                  myEmitter,
+                  pm2_process,
+                  clone_path,
+                  base_hostname,
+                  treeish
+                );
+              }
             } else {
-                myEmitter.emit('error', new Error("Clone path " + clone_path + " is not a directory"));
+              myEmitter.emit('progress', 'Commit not already running');
+              await deploy_process_not_running(
+                myEmitter,
+                clone_path,
+                base_hostname,
+                treeish
+              );
             }
+          } catch (err) {
+            myEmitter.emit('error', err);
+          }
+        } else {
+          myEmitter.emit(
+            'error',
+            new Error("Clone path " + clone_path + " is not a directory")
+          );
         }
+      } catch (err) {
+          myEmitter.emit('progress', 'Cloning code.');
+          try {
+            await deploy_new_commit(
+              myEmitter,
+              source_repo_path,
+              clone_path,
+              base_hostname,
+              treeish
+            );
+          } catch (err) {
+            myEmitter.emit('error', err);
+          }
+      }
+      myEmitter.emit('end');
     });
     return myEmitter;
 }

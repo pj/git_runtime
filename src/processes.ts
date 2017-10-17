@@ -9,9 +9,9 @@ import * as nunjucks from 'nunjucks';
 import * as utils from './utils';
 import {deploy_commit} from './deploy';
 import * as admin from './admin';
-import * as ppm2 from './promisify/ppm2';
 import * as path from 'path';
 import * as jsonfile from 'jsonfile';
+import * as pm2 from 'pm2';
 
 var uuid = require('uuid');
 var levelup = require('levelup');
@@ -39,9 +39,11 @@ function get_commit_id(req, base_hostname) {
     }
 }
 
-async function default_proxying(req, res, next, base_hostname, production_commit,
-                          server_port, proxy, config, multiproxy_db,
-                          vb_connection) {
+async function default_proxying(
+  req, res, next, base_hostname, production_commit,
+  server_port, proxy, config, multiproxy_db,
+  vb_connection
+) {
     try {
         let commit_id = get_commit_id(req, base_hostname);
 
@@ -56,7 +58,7 @@ async function default_proxying(req, res, next, base_hostname, production_commit
                                 && config['plugins']
                                 && config['plugins']['multiproxy'];
 
-        let list = await ppm2.list();
+        let list = await pm2.list();
         let snapshot_id = null, multiproxy_test_id = null, headers = {};
         if (multiproxying) {
             multiproxy_test_id = uuid.v4();
@@ -86,17 +88,25 @@ async function default_proxying(req, res, next, base_hostname, production_commit
     }
 }
 
-export default function start_lazycloud_server(deploy_path, server_port,
-                                               base_hostname, production_commit) {
-    var config = jsonfile.readFileSync(path.join(deploy_path, "lazycloud.json"));
+export default function start_lazycloud_server(
+  deploy_path,
+  server_port,
+  base_hostname,
+  production_commit
+) {
+    var config = jsonfile.readFileSync(
+      path.join(deploy_path, "lazycloud.json")
+    );
     var app = express();
 
     // Template config.
-    nunjucks.configure(path.resolve(__dirname, '..', 'views'), {
+    nunjucks.configure(
+      path.resolve(__dirname, '..', 'views'), {
         autoescape: true,
         express: app,
         noCache: true
-    });
+      }
+    );
 
     // set .njk as the default extension
     app.set('view engine', 'njk');
@@ -160,7 +170,7 @@ export default function start_lazycloud_server(deploy_path, server_port,
                      server_port, proxy, config, multiproxy_db, vb_connection);
     });
 
-    return ppm2.connect()
+    return pm2.connect()
         .then(function () {
             return new Promise(function (resolve, reject) {
                 var server = app.listen(server_port);

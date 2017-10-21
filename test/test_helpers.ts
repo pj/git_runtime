@@ -1,10 +1,9 @@
 import * as q from "q";
-import * as pm2 from "pm2";
 import * as path from 'path';
 
 var fs = require("q-io/fs");
 
-import * as ppm2 from "../src/promisify/ppm2";
+import * as pm2 from "pm2";
 import * as fse from '../src/promisify/fs-extra';
 
 import * as utils from '../src/utils';
@@ -58,6 +57,6 @@ export async function createTempDeployment() {
 
     this.deploy_repo_path = path.resolve(this.deployment_path, 'repo');
     await init.init_deployment(this.repo_path);
-    await ppm2.connect();
-    await ppm2.killDaemon();
+    await pm2.connect();
+    await pm2.killDaemon();
 }

@@ -8,7 +8,7 @@ declare module 'pm2' {
     export function disconnect(): any;
     export function list(): any;
     export function start(blah: any): any;
-    export function stop(): any;
+    export function stop(blah: any): any;
     export function killDaemon(): any;
 }
 

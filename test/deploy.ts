@@ -9,7 +9,6 @@ import * as path from 'path';
 
 var fs = require("q-io/fs");
 
-import * as ppm2 from "../src/promisify/ppm2";
 import * as fse from '../src/promisify/fs-extra';
 
 import {start_proxy_process, restart_proxy_process, stop_proxy_process} from
@@ -60,8 +59,8 @@ async function check_files(base_path, ...paths) {
 }
 
 async function check_processes(...commit_ids) {
-    await ppm2.connect();
-    let processes: any = await ppm2.list();
+    await pm2.connect();
+    let processes: any = await pm2.list();
     console.log(processes.map(proc => proc.name));
     processes = processes.filter(process => process.name.indexOf('proxy') === -1);
     expect(processes).to.have.lengthOf(commit_ids.length);
@@ -227,7 +226,7 @@ describe("Deploy, update and start commits.", function () {
         await utils.exec('git pull', {cwd: this.deploy_repo_path});
 
         // stop all processes
-        await ppm2.killDaemon();
+        await pm2.killDaemon();
 
         // deploy changes.
         await test_deploy_emitter(this.deployment_path, 'master', 'lazycloud.test', async function () {

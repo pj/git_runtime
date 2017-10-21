@@ -4,7 +4,6 @@ var assert = chai.assert;
 var expect = chai.expect;
 
 import * as q from "q";
-import * as pm2 from "pm2";
 import * as path from 'path';
 
 var fs = require("q-io/fs");
@@ -17,6 +16,7 @@ import {deploy_commit} from '../src/deploy';
 import {commiterator, createTempRepo, createTempDeployment} from './test_helpers';
 import * as init from '../src/init';
 import * as utils from '../src/utils';
+const pm2 = utils.pm2;
 import * as request from 'request';
 
 const package_json = `{
@@ -55,19 +55,27 @@ async function check_file(check_path) {
 }
 
 async function check_files(base_path, ...paths) {
-    await Promise.all(paths.map(file_path => check_file(path.resolve(base_path, file_path))));
+    await Promise.all(
+      paths.map(file_path => check_file(path.resolve(base_path, file_path)))
+    );
 }
 
 async function check_processes(...commit_ids) {
     await pm2.connect();
     let processes: any = await pm2.list();
     console.log(processes.map(proc => proc.name));
-    processes = processes.filter(process => process.name.indexOf('proxy') === -1);
+    processes = processes.filter(
+      process => process.name.indexOf('proxy') === -1
+    );
     expect(processes).to.have.lengthOf(commit_ids.length);
     for (let process of processes) {
-        let process_names = commit_ids.map(commit_id => 'lazycloud - ' + commit_id);
+        let process_names = commit_ids.map(
+          commit_id => 'lazycloud - ' + commit_id
+        );
         expect(process.name).to.be.oneOf(process_names);
-        expect(process.pm2_env.env.LAZY_CLOUD_COMMIT_ID).to.be.oneOf(commit_ids);
+        expect(
+          process.pm2_env.env.LAZY_CLOUD_COMMIT_ID
+        ).to.be.oneOf(commit_ids);
 
         // check that we are getting a response from the process
     }
@@ -112,10 +120,22 @@ describe("Deploy, update and start commits.", function () {
 
     it("deploy master", async function () {
         let commits = new commiterator (this.repo_path,
-            ["initial commit", { 'package.json': package_json,
-                                 'index.js': index_js }],
-            ["another commit", { 'package.json': package_json.replace(
-                '"scripts": {}', `"scripts": {\n"lazy_cloud:postdeploy": "touch blah.blah"\n    }`)}]
+            [
+              "initial commit",
+              {
+                'package.json': package_json,
+                 'index.js': index_js
+              }
+            ],
+            [
+              "another commit",
+              {
+                'package.json': package_json.replace(
+                  '"scripts": {}',
+                  `"scripts": {\n"lazy_cloud:postdeploy": "touch blah.blah"\n}`
+                )
+              }
+            ]
         );
 
         await commits.next();
@@ -124,14 +144,26 @@ describe("Deploy, update and start commits.", function () {
         // pull changes into deployment.
         await utils.exec('git pull', {cwd: this.deploy_repo_path});
 
-        await test_deploy_emitter(this.deployment_path, 'master', 'lazycloud.test', async function () {
+        await test_deploy_emitter(
+          this.deployment_path,
+          'master',
+          'lazycloud.test',
+          async function () {
             // check code exists
-            await check_files(path.resolve(this.deployment_path, 'commits', 'master'),
-                              'package.json', 'index.js');
+            await check_files(
+              path.resolve(
+                this.deployment_path,
+                'commits',
+                'master'
+              ),
+              'package.json',
+              'index.js'
+            );
 
             // ...and process is running.
             await check_processes('master');
-        }.bind(this));
+          }.bind(this)
+        );
 
         // write second commit
         let second_commit_id = await commits.next();

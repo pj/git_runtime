@@ -7,7 +7,7 @@ import * as fse from 'fs-extra';
 import * as q from 'q';
 import * as jsonfile from 'jsonfile';
 import * as utils from './utils';
-import * as pm2 from 'pm2';
+const pm2 = utils.pm2;
 import * as EventEmitter from 'events';
 
 function execIf(pred, command): any {

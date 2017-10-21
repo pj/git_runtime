@@ -1,9 +1,9 @@
 /**
   * @file Starts and stops the lazy cloud proxy process.
   */
-import * as pm2 from 'pm2';
 import * as path from 'path';
 import * as utils from './utils';
+const pm2 = utils.pm2;
 
 function create_process_def(name, deployment_path, port, base_hostname, production_commit) {
     return {

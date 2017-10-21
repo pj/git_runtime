@@ -2,13 +2,15 @@
     "compilerOptions": {
         "declaration": true,
         "outDir": "dist",
-        "target": "ES6",
+        "target": "ES2015",
         "module": "commonjs",
-        "moduleResolution": "node"
+        "moduleResolution": "node",
+        "lib": ["ES2015"]
     },
     "files": [
         "src/lazycloud.ts",
         "src/start_server.ts",
-        "src/multiproxy/runner.ts"
+        "src/multiproxy/runner.ts",
+        "test/deploy.ts"
     ]
 }

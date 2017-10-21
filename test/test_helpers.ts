@@ -3,10 +3,10 @@ import * as path from 'path';
 
 var fs = require("q-io/fs");
 
-import * as pm2 from "pm2";
 import * as fse from '../src/promisify/fs-extra';
 
 import * as utils from '../src/utils';
+const pm2 = utils.pm2;
 import * as init from '../src/init';
 
 async function write_commit(tmp_repo_path, commit) {
@@ -43,14 +43,14 @@ export class commiterator {
 }
 
 export async function createTempRepo() {
-    var x = await utils.tmp.dirAsync({unsafeCleanup: true});
+    var x = await utils.tmp.dir({unsafeCleanup: true});
     this.repo_path = x[0]
     this.repo_cleanup = x[1];
     await utils.exec("git init", {cwd: this.repo_path});
 }
 
 export async function createTempDeployment() {
-    var x = await utils.tmp.dirAsync({unsafeCleanup: true});
+    var x = await utils.tmp.dir({unsafeCleanup: true});
     this.deployment_path = x[0]
     this.deployment_cleanup = x[1];
     process.chdir(this.deployment_path);

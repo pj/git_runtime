@@ -39,11 +39,11 @@ export function exec(command: string, options=null){
     proc.on('close', (code) => {
         let stdout = stdout_data.join("");
         let stderr = stderr_data.join("");
-        console.log("=======");
-        console.log(command);
-        console.log(stdout);
-        console.log("-------");
-        console.log(stderr);
+        //console.log("=======");
+        //console.log(command);
+        //console.log(stdout);
+        //console.log("-------");
+        //console.log(stderr);
 
         if (code !== 0) {
             deferred.reject(new Error("Process closed unexpectedly with code: " + code));
@@ -104,7 +104,7 @@ export function denodeifyAll(o) {
     var new_module = {}
     Object.keys(o)
         .filter(m => typeof o[m] === 'function')
-        .forEach(m => new_module[m + 'Async'] = q.denodeify(o[m]));
+        .forEach(m => new_module[m] = q.denodeify(o[m]));
 
     return new_module;
 }
@@ -179,3 +179,13 @@ export const glob:any = q.denodeify(require("glob"));
 export var getPortAsync = q.denodeify(require("portfinder").getPort);
 export var readJSON = q.denodeify(jsonfile.readFile);
 export var writeJSON = q.denodeify(jsonfile.writeFile);
+import * as pm2n from 'pm2';
+
+export var pm2 = {
+  connect: q.nbind(pm2n.connect, pm2n),
+  start: q.nbind(pm2n.start, pm2n),
+  disconnect: q.nbind(pm2n.disconnect, pm2n),
+  stop: q.nbind(pm2n.stop, pm2n),
+  list: q.nbind(pm2n.list, pm2n),
+  killDaemon: q.nbind(pm2n.killDaemon, pm2n)
+};

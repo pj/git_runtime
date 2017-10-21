@@ -7,11 +7,11 @@ import * as httpProxy from 'http-proxy';
 import * as http from 'http';
 import * as nunjucks from 'nunjucks';
 import * as utils from './utils';
+const pm2 = utils.pm2;
 import {deploy_commit} from './deploy';
 import * as admin from './admin';
 import * as path from 'path';
 import * as jsonfile from 'jsonfile';
-import * as pm2 from 'pm2';
 
 var uuid = require('uuid');
 var levelup = require('levelup');

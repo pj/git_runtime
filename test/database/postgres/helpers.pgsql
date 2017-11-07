@@ -18,23 +18,3 @@
        RETURN 0;
      END;
   $$;
-
-CREATE OR REPLACE FUNCTION is_temp_table(tableName varchar)
-  RETURNS pg_catalog.bool
-  LANGUAGE plpgsql AS $$
-    BEGIN
-       /* check the table exist in database and is visible*/
-      PERFORM n.nspname, c.relname
-        FROM pg_catalog.pg_class c
-          LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
-        WHERE n.nspname LIKE 'pg_temp_%'
-          AND pg_catalog.pg_table_is_visible(c.oid)
-          AND Upper(relname) = Upper(tableName);
-
-      IF FOUND THEN
-        RETURN TRUE;
-      ELSE
-        RETURN FALSE;
-      END IF;
-    END;
-  $$;

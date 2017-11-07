@@ -5,8 +5,9 @@ BEGIN;
   SELECT lazycloud_add_version('C', '{"B"}');
   SELECT lazycloud_add_version('D', '{"B"}');
 
-  INSERT INTO lazycloud_lazycloud_test_table (name, lazycloud_version)
-    VALUES ('Paul', 'A');
+  INSERT INTO lazycloud_lazycloud_test_table
+    (name, lazycloud_version, lazycloud_snapshot)
+    VALUES ('Paul', 'A', 0);
 
   SELECT is(lazycloud_find_parent('lazycloud_test_table', 'id', lastval(), 'C'), 'A');
   SELECT * FROM finish();

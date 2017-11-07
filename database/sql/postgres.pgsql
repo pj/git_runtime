@@ -1,3 +1,23 @@
+CREATE OR REPLACE FUNCTION is_temp_table(tableName varchar)
+  RETURNS pg_catalog.bool
+  LANGUAGE plpgsql AS $$
+    BEGIN
+       /* check the table exist in database and is visible*/
+      PERFORM n.nspname, c.relname
+        FROM pg_catalog.pg_class c
+          LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname LIKE 'pg_temp_%'
+          AND pg_catalog.pg_table_is_visible(c.oid)
+          AND Upper(relname) = Upper(tableName);
+
+      IF FOUND THEN
+        RETURN TRUE;
+      ELSE
+        RETURN FALSE;
+      END IF;
+    END;
+  $$;
+
 CREATE OR REPLACE FUNCTION lazycloud_get_version()
   RETURNS varchar
   LANGUAGE plpgsql
@@ -10,6 +30,35 @@ CREATE OR REPLACE FUNCTION lazycloud_get_version()
     END;
   $$;
 
+CREATE OR REPLACE FUNCTION lazycloud_get_snapshot()
+  RETURNS bigint
+  LANGUAGE plpgsql
+  AS $$
+    DECLARE
+      current_snapshot_number bigint;
+    BEGIN
+      SELECT snapshot_number
+        INTO current_snapshot_number
+        FROM lazycloud_snapshot
+        WHERE id = 1;
+      IF NOT FOUND THEN
+        RAISE EXCEPTION 'Snapshot number must exist';
+      END IF;
+      RETURN current_snapshot_number;
+    END;
+  $$;
+
+CREATE OR REPLACE FUNCTION lazycloud_increment_snapshot()
+  RETURNS void
+  LANGUAGE plpgsql
+  AS $$
+    BEGIN
+      UPDATE lazycloud_snapshot
+        SET snapshot_number = snapshot_number + 1
+        WHERE id = 1;
+    END;
+  $$;
+
 CREATE OR REPLACE FUNCTION lazycloud_create_version_tree_table()
   RETURNS void
   LANGUAGE plpgsql
@@ -19,6 +68,13 @@ CREATE OR REPLACE FUNCTION lazycloud_create_version_tree_table()
         id varchar PRIMARY KEY,
         parents hstore
       );
+
+      CREATE TABLE lazycloud_snapshot (
+        id int PRIMARY KEY,
+        snapshot_number bigint
+      );
+
+      INSERT INTO lazycloud_snapshot VALUES (1, 0);
     END;
   $$;
 
@@ -78,7 +134,7 @@ CREATE OR REPLACE FUNCTION lazycloud_find_parent(
       keys text[];
       versions hstore;
     BEGIN
-      EXECUTE 'SELECT array_agg(lazycloud_version)  ' ||
+      EXECUTE 'SELECT array_agg(lazycloud_version) ' ||
         'FROM lazycloud_' || tableName ||
         ' WHERE ' || idColumn || ' = ' || id INTO keys;
       versions = hstore(keys, keys);
@@ -219,20 +275,26 @@ CREATE OR REPLACE FUNCTION lazycloud_row_trigger_py()
 
     lazycloud_version_row = plpy.execute('select lazycloud_get_version()')
     lazycloud_version = lazycloud_version_row[0]['lazycloud_get_version']
+    lazycloud_snapshot_row = plpy.execute('select lazycloud_get_snapshot()')
+    lazycloud_snapshot = lazycloud_snapshot_row[0]['lazycloud_get_snapshot']
     if TD['event'] == 'INSERT':
       new_row = TD['new']
       new_row.pop('id', None)
       new_row['lazycloud_version'] = lazycloud_version
+      new_row['lazycloud_snapshot'] = lazycloud_snapshot
       new_row['lazycloud_tombstone'] = False
       insert_row(new_row)
       return None;
 
     elif TD['event'] == 'DELETE':
       old_row = TD['old']
+      old_row['lazycloud_snapshot'] = lazycloud_snapshot
       if old_row['lazycloud_version'] == lazycloud_version:
         # FIXME: handle primary key correctly.
-        plpy.execute('UPDATE lazycloud_{} SET lazycloud_tombstone = true'.format(
-          TD['table_name'])
+        plpy.execute(
+          'UPDATE lazycloud_{} SET lazycloud_tombstone = true'.format(
+            TD['table_name']
+          )
         )
       else:
         old_row['lazycloud_version'] = lazycloud_version
@@ -242,6 +304,7 @@ CREATE OR REPLACE FUNCTION lazycloud_row_trigger_py()
 
     elif TD['event'] == 'UPDATE':
       new_row = TD['new']
+      new_row['lazycloud_snapshot'] = lazycloud_snapshot
       if new_row['lazycloud_version'] == lazycloud_version:
         update_row(new_row)
       else:
@@ -260,6 +323,10 @@ CREATE OR REPLACE FUNCTION lazycloud_version_table()
       schemaName varchar;
       isTempTable boolean;
       internalIdentity text;
+      primaryColumn record;
+      primaryColumns text[];
+      tableConstraintName text;
+      newPrimaryKeyColumns text;
     BEGIN
       FOR createdTable IN SELECT * FROM pg_event_trigger_ddl_commands() LOOP
         IF NOT createdTable.object_type = 'table' THEN
@@ -267,7 +334,8 @@ CREATE OR REPLACE FUNCTION lazycloud_version_table()
         END IF;
         schemaName = split_part(createdTable.object_identity, '.', 1);
         tableName = split_part(createdTable.object_identity, '.', 2);
-        if tableName = 'lazycloud_version_tree' THEN
+        if tableName = 'lazycloud_version_tree'
+          OR tableName = 'lazycloud_snapshot' THEN
           CONTINUE;
         END IF;
 
@@ -277,23 +345,49 @@ CREATE OR REPLACE FUNCTION lazycloud_version_table()
           CONTINUE;
         END IF;
 
-        -- FIXME: handle primary keys.
-        -- SELECT column_name, udt_name
-        --   FROM information_schema.columns
-        --   WHERE createdTable.object_identity;
-        --
-        -- EXECUTE 'SELECT ' ||
-        --   'c.column_name, c.data_type ' ||
-        --   'FROM information_schema.table_constraints tc ' ||
-        --   'JOIN information_schema.constraint_column_usage AS ccu ' ||
-        --     'USING (constraint_schema, constraint_name) '  ||
-        --   'JOIN information_schema.columns AS c ' ||
-        --     'ON c.table_schema = tc.constraint_schema ' ||
-        --       'AND tc.table_name = c.table_name ' ||
-        --       'AND ccu.column_name = c.column_name ' ||
-        --   'WHERE constraint_type = "PRIMARY KEY" ' ||
-        --     'AND tc.table_schema = ' || schemaName ||
-        --     'AND tc.table_name = ' || tableName;
+        FOR primaryColumn IN
+          EXECUTE
+            'SELECT c.column_name, c.data_type ' ||
+            'FROM information_schema.table_constraints tc ' ||
+            'JOIN information_schema.constraint_column_usage AS ccu ' ||
+              'USING (constraint_schema, constraint_name) '  ||
+            'JOIN information_schema.columns AS c ' ||
+              'ON c.table_schema = tc.constraint_schema ' ||
+                'AND tc.table_name = c.table_name ' ||
+                'AND ccu.column_name = c.column_name ' ||
+            'WHERE constraint_type = ''PRIMARY KEY'' ' ||
+              'AND tc.table_schema = ''' || schemaName || ''' ' ||
+              'AND tc.table_name = ''' || tableName || ''''
+          LOOP
+          primaryColumns := array_append(
+            primaryColumns,
+            primaryColumn.column_name::text
+          );
+        END LOOP;
+
+        primaryColumns := array_cat(
+          primaryColumns,
+          ARRAY[
+            'lazycloud_version',
+            'lazycloud_tombstone',
+            'lazycloud_snapshot'
+          ]
+        );
+
+        newPrimaryKeyColumns := array_to_string(
+          primaryColumns,
+          ','
+        );
+
+        FOR tableConstraintName IN
+          EXECUTE 'SELECT constraint_name ' ||
+            'FROM information_schema.table_constraints ' ||
+            'WHERE constraint_type = ''PRIMARY KEY'' ' ||
+              'AND table_schema = ''' || schemaName || ''' '
+              'AND table_name = ''' || tableName || '''' LOOP
+          EXECUTE 'ALTER TABLE ' || createdTable.object_identity
+            || ' DROP CONSTRAINT ' || tableConstraintName;
+        END LOOP;
 
         EXECUTE 'ALTER TABLE ' || createdTable.object_identity
           || ' ADD COLUMN lazycloud_version text';
@@ -301,7 +395,10 @@ CREATE OR REPLACE FUNCTION lazycloud_version_table()
         EXECUTE 'ALTER TABLE ' || createdTable.object_identity
           || ' ADD COLUMN lazycloud_tombstone boolean NOT NULL DEFAULT false';
 
-        -- EXECUTE 'ALTER TABLE ' || tableName || ' ADD PRIMARY KEY (id)';
+        EXECUTE 'ALTER TABLE ' || createdTable.object_identity
+          || ' ADD COLUMN lazycloud_snapshot bigint NOT NULL';
+
+        EXECUTE 'ALTER TABLE ' || tableName || ' ADD PRIMARY KEY (' || newPrimaryKeyColumns || ')';
 
         EXECUTE 'ALTER TABLE ' || tableName ||
           ' RENAME TO lazycloud_' || tableName;

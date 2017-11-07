@@ -8,8 +8,9 @@ BEGIN;
   SELECT set_config('lazycloud.version_id', 'C', false);
 
   -- update existing
-  INSERT INTO lazycloud_lazycloud_test_table (lazycloud_version, name)
-    VALUES ('C', 'billy');
+  INSERT INTO lazycloud_lazycloud_test_table
+    (lazycloud_version, name, lazycloud_snapshot)
+    VALUES ('C', 'billy', 0);
   --
   UPDATE lazycloud_test_table SET name = 'bobby' WHERE id=lastval();
   SELECT results_eq(
@@ -19,8 +20,9 @@ BEGIN;
   DELETE FROM lazycloud_lazycloud_test_table;
 
   -- update previous version
-  INSERT INTO lazycloud_lazycloud_test_table (lazycloud_version, name)
-    VALUES ('B', 'billy');
+  INSERT INTO lazycloud_lazycloud_test_table
+    (lazycloud_version, name, lazycloud_snapshot)
+    VALUES ('B', 'billy', 0);
   SELECT set_config('lazycloud.version_id', 'C', false);
   UPDATE lazycloud_test_table SET name = 'bobby' WHERE id=lastval();
   SELECT set_config('lazycloud.version_id', 'D', false);
@@ -33,10 +35,12 @@ BEGIN;
   DELETE FROM lazycloud_lazycloud_test_table;
 
   -- update multiple existing version
-  INSERT INTO lazycloud_lazycloud_test_table (lazycloud_version, name)
-    VALUES ('C', 'billy');
-  INSERT INTO lazycloud_lazycloud_test_table (lazycloud_version, name)
-    VALUES ('C', 'bobby');
+  INSERT INTO lazycloud_lazycloud_test_table
+    (lazycloud_version, name, lazycloud_snapshot)
+    VALUES ('C', 'billy', 0);
+  INSERT INTO lazycloud_lazycloud_test_table
+    (lazycloud_version, name, lazycloud_snapshot)
+    VALUES ('C', 'bobby', 0);
   SELECT set_config('lazycloud.version_id', 'C', false);
   UPDATE lazycloud_test_table SET name = 'robby';
   SELECT results_eq(
@@ -46,10 +50,12 @@ BEGIN;
   DELETE FROM lazycloud_lazycloud_test_table;
 
   -- update multiple older version
-  INSERT INTO lazycloud_lazycloud_test_table (lazycloud_version, name)
-    VALUES ('A', 'billy');
-  INSERT INTO lazycloud_lazycloud_test_table (lazycloud_version, name)
-    VALUES ('B', 'bobby');
+  INSERT INTO lazycloud_lazycloud_test_table
+    (lazycloud_version, name, lazycloud_snapshot)
+    VALUES ('A', 'billy', 0);
+  INSERT INTO lazycloud_lazycloud_test_table
+    (lazycloud_version, name, lazycloud_snapshot)
+    VALUES ('B', 'bobby', 0);
   SELECT set_config('lazycloud.version_id', 'C', false);
   UPDATE lazycloud_test_table SET name = 'robby';
   SELECT results_eq(
@@ -59,12 +65,15 @@ BEGIN;
   DELETE FROM lazycloud_lazycloud_test_table;
 
   -- update multiple some not others.
-  INSERT INTO lazycloud_lazycloud_test_table (lazycloud_version, name)
-    VALUES ('A', 'billy');
-  INSERT INTO lazycloud_lazycloud_test_table (lazycloud_version, name)
-    VALUES ('C', 'bobby');
-  INSERT INTO lazycloud_lazycloud_test_table (lazycloud_version, name)
-    VALUES ('D', 'blobby');
+  INSERT INTO lazycloud_lazycloud_test_table
+    (lazycloud_version, name, lazycloud_snapshot)
+    VALUES ('A', 'billy', 0);
+  INSERT INTO lazycloud_lazycloud_test_table
+    (lazycloud_version, name, lazycloud_snapshot)
+    VALUES ('C', 'bobby', 0);
+  INSERT INTO lazycloud_lazycloud_test_table
+    (lazycloud_version, name, lazycloud_snapshot)
+    VALUES ('D', 'blobby', 0);
   SELECT set_config('lazycloud.version_id', 'C', false);
   UPDATE lazycloud_test_table SET name = 'robby';
   SELECT results_eq(

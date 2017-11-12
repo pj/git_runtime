@@ -11,7 +11,7 @@ BEGIN;
     (lazycloud_version, name, lazycloud_snapshot)
     VALUES ('C', 'billy', 0);
 
-  DELETE FROM lazycloud_test_table WHERE id = lastval();
+  DELETE FROM lazycloud_test_table WHERE test_id = lastval();
 
   SELECT results_eq(
     'SELECT lazycloud_version, name, lazycloud_tombstone FROM lazycloud_lazycloud_test_table',

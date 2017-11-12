@@ -210,6 +210,7 @@ CREATE OR REPLACE FUNCTION lazycloud_row_trigger_py()
   RETURNS trigger
   LANGUAGE plpython3u
   AS $$
+    import itertools
     def prepare_row(row):
       col_names, col_values = zip(*row.items())
       col_types_rows = plpy.execute("""
@@ -242,36 +243,64 @@ CREATE OR REPLACE FUNCTION lazycloud_row_trigger_py()
 
     def update_row(row):
       col_values, insert_nums, col_names, col_types, col_mapping = prepare_row(row)
+      col_values = list(col_values)
 
       col_names = list(col_names)
       insert_nums = list(insert_nums)
       assigns = map(
-        lambda x: "{} = {}".format(
-          x[0],
-          x[1]
-        ),
+        lambda x: "{} = {}".format(x[0], x[1]),
         zip(col_names, insert_nums)
       )
       insert_len = len(list(insert_nums))
 
       assigns_joined = ', '.join(assigns)
 
+      primary_key_names = get_primary_key_names()
+      primary_equals = []
+      for i, name in enumerate(itertools.chain(primary_key_names, ['lazycloud_version'])):
+        col_types.append(col_mapping[name])
+        col_values.append(row[name])
+        primary_equals.append(
+          "{} = {}".format(name, '${}'.format(insert_len + i + 1))
+        )
+      primary_joined = ' AND '.join(primary_equals)
+
       # FIXME: handle primary key correctly.
-      query = 'UPDATE lazycloud_{} SET {} WHERE id = {} AND lazycloud_version = {}'.format(
+      query = 'UPDATE lazycloud_{} SET {} WHERE {}'.format(
         TD['table_name'],
         assigns_joined,
-        '${}'.format(insert_len + 1),
-        '${}'.format(insert_len + 2),
+        primary_joined
       )
 
       col_values = list(col_values)
       # FIXME: handle primary key correctly.
-      col_types.append(col_mapping['id'])
-      col_values.append(row['id'])
-      col_types.append(col_mapping['lazycloud_version'])
-      col_values.append(row['lazycloud_version'])
+      # col_types.append(col_mapping['id'])
+      # col_values.append(row['id'])
+      # col_types.append(col_mapping['lazycloud_version'])
+      # col_values.append(row['lazycloud_version'])
       query_plan = plpy.prepare(query, col_types)
       plpy.execute(query_plan, col_values)
+
+    def get_primary_key_names():
+      primary_cols = plpy.execute("""
+        SELECT c.column_name
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.constraint_column_usage AS ccu
+          USING (constraint_schema, constraint_name)
+        JOIN information_schema.columns AS c
+          ON c.table_schema = tc.constraint_schema
+            AND tc.table_name = c.table_name
+            AND ccu.column_name = c.column_name
+        WHERE constraint_type = 'PRIMARY KEY'
+          AND tc.table_schema = '{}'
+          AND tc.table_name = 'lazycloud_{}'
+      """.format(TD['table_schema'], TD['table_name']))
+
+      return filter(
+        lambda x: x not in
+          ['lazycloud_version', 'lazycloud_tombstone', 'lazycloud_snapshot'],
+        map(lambda r: r['column_name'], primary_cols)
+      )
 
     lazycloud_version_row = plpy.execute('select lazycloud_get_version()')
     lazycloud_version = lazycloud_version_row[0]['lazycloud_get_version']
@@ -279,7 +308,9 @@ CREATE OR REPLACE FUNCTION lazycloud_row_trigger_py()
     lazycloud_snapshot = lazycloud_snapshot_row[0]['lazycloud_get_snapshot']
     if TD['event'] == 'INSERT':
       new_row = TD['new']
-      new_row.pop('id', None)
+      primary_key_names = get_primary_key_names()
+      for name in primary_key_names:
+        new_row.pop(name, None)
       new_row['lazycloud_version'] = lazycloud_version
       new_row['lazycloud_snapshot'] = lazycloud_snapshot
       new_row['lazycloud_tombstone'] = False
@@ -325,8 +356,12 @@ CREATE OR REPLACE FUNCTION lazycloud_version_table()
       internalIdentity text;
       primaryColumn record;
       primaryColumns text[];
+      newPrimaryColumns text[];
       tableConstraintName text;
-      newPrimaryKeyColumns text;
+      joinedPrimaryKeyColumns text;
+      viewKeyColumn text;
+      viewKeyColumns text[];
+      joinedViewKeyColumns text;
     BEGIN
       FOR createdTable IN SELECT * FROM pg_event_trigger_ddl_commands() LOOP
         IF NOT createdTable.object_type = 'table' THEN
@@ -365,7 +400,7 @@ CREATE OR REPLACE FUNCTION lazycloud_version_table()
           );
         END LOOP;
 
-        primaryColumns := array_cat(
+        newPrimaryColumns := array_cat(
           primaryColumns,
           ARRAY[
             'lazycloud_version',
@@ -374,8 +409,8 @@ CREATE OR REPLACE FUNCTION lazycloud_version_table()
           ]
         );
 
-        newPrimaryKeyColumns := array_to_string(
-          primaryColumns,
+        joinedPrimaryKeyColumns := array_to_string(
+          newPrimaryColumns,
           ','
         );
 
@@ -398,22 +433,33 @@ CREATE OR REPLACE FUNCTION lazycloud_version_table()
         EXECUTE 'ALTER TABLE ' || createdTable.object_identity
           || ' ADD COLUMN lazycloud_snapshot bigint NOT NULL';
 
-        EXECUTE 'ALTER TABLE ' || tableName || ' ADD PRIMARY KEY (' || newPrimaryKeyColumns || ')';
+        EXECUTE 'ALTER TABLE ' || tableName || ' ADD PRIMARY KEY (' || joinedPrimaryKeyColumns || ')';
 
         EXECUTE 'ALTER TABLE ' || tableName ||
           ' RENAME TO lazycloud_' || tableName;
 
         internalIdentity = schemaName || '.lazycloud_' ||   tableName;
+        FOREACH viewKeyColumn IN ARRAY primaryColumns LOOP
+          viewKeyColumns := array_append(
+            viewKeyColumns,
+            internalIdentity || '.' || viewKeyColumn
+          );
+        END LOOP;
+
+        joinedViewKeyColumns := array_to_string(
+          viewKeyColumns,
+          ','
+        );
 
         EXECUTE 'CREATE VIEW ' || createdTable.object_identity || ' AS '
-          || 'SELECT DISTINCT ON (' || internalIdentity || '.id) '
+          || 'SELECT DISTINCT ON (' || joinedViewKeyColumns || ') '
           ||   internalIdentity || '.* '
           || 'FROM ' || internalIdentity || ', lazycloud_find_versions() '
           || 'AS lazycloud_version_table '
           || 'WHERE ' || internalIdentity
           ||   '.lazycloud_version = lazycloud_version_table.id '
           || 'AND ' || internalIdentity || '.lazycloud_tombstone = false '
-          || 'ORDER BY ' || internalIdentity || '.id, '
+          || 'ORDER BY ' || joinedViewKeyColumns || ', '
           ||   'lazycloud_version_table.version_order';
 
         EXECUTE 'CREATE TRIGGER lazycloud_trigger_' || tableName

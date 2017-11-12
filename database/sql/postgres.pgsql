@@ -265,7 +265,6 @@ CREATE OR REPLACE FUNCTION lazycloud_row_trigger_py()
         )
       primary_joined = ' AND '.join(primary_equals)
 
-      # FIXME: handle primary key correctly.
       query = 'UPDATE lazycloud_{} SET {} WHERE {}'.format(
         TD['table_name'],
         assigns_joined,
@@ -273,11 +272,6 @@ CREATE OR REPLACE FUNCTION lazycloud_row_trigger_py()
       )
 
       col_values = list(col_values)
-      # FIXME: handle primary key correctly.
-      # col_types.append(col_mapping['id'])
-      # col_values.append(row['id'])
-      # col_types.append(col_mapping['lazycloud_version'])
-      # col_values.append(row['lazycloud_version'])
       query_plan = plpy.prepare(query, col_types)
       plpy.execute(query_plan, col_values)
 

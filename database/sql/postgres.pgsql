@@ -59,7 +59,7 @@ CREATE OR REPLACE FUNCTION lazycloud_increment_snapshot()
     END;
   $$;
 
-CREATE OR REPLACE FUNCTION lazycloud_create_version_tree_table()
+CREATE OR REPLACE FUNCTION lazycloud_create_internal_tables()
   RETURNS void
   LANGUAGE plpgsql
   AS $$
@@ -304,38 +304,38 @@ CREATE OR REPLACE FUNCTION lazycloud_row_trigger_py()
       new_row = TD['new']
       primary_key_names = get_primary_key_names()
       for name in primary_key_names:
-        new_row.pop(name, None)
+        if new_row[name] is None:
+          new_row.pop(name, None)
       new_row['lazycloud_version'] = lazycloud_version
       new_row['lazycloud_snapshot'] = lazycloud_snapshot
       new_row['lazycloud_tombstone'] = False
       insert_row(new_row)
-      return None;
 
     elif TD['event'] == 'DELETE':
       old_row = TD['old']
       old_row['lazycloud_snapshot'] = lazycloud_snapshot
-      if old_row['lazycloud_version'] == lazycloud_version:
-        # FIXME: handle primary key correctly.
-        plpy.execute(
-          'UPDATE lazycloud_{} SET lazycloud_tombstone = true'.format(
-            TD['table_name']
-          )
-        )
-      else:
-        old_row['lazycloud_version'] = lazycloud_version
-        old_row['lazycloud_tombstone'] = true
-        insert_row(old_row)
-      return None
+      #if old_row['lazycloud_version'] == lazycloud_version:
+      #  # FIXME: handle primary key correctly.
+      #  plpy.execute(
+      #    'UPDATE lazycloud_{} SET lazycloud_tombstone = true'.format(
+      #      TD['table_name']
+      #    )
+      #  )
+      #else:
+      old_row['lazycloud_version'] = lazycloud_version
+      old_row['lazycloud_tombstone'] = True
+      insert_row(old_row)
 
     elif TD['event'] == 'UPDATE':
       new_row = TD['new']
       new_row['lazycloud_snapshot'] = lazycloud_snapshot
-      if new_row['lazycloud_version'] == lazycloud_version:
-        update_row(new_row)
-      else:
-        new_row['lazycloud_version'] = lazycloud_version
-        insert_row(new_row)
-      return None
+      # if new_row['lazycloud_version'] == lazycloud_version:
+      #  update_row(new_row)
+      # else:
+      new_row['lazycloud_version'] = lazycloud_version
+      insert_row(new_row)
+    #current_state = plpy.execute('select * from lazycloud_lazycloud_test_table')
+    #plpy.notice(current_state)
   $$;
 
 CREATE OR REPLACE FUNCTION lazycloud_version_table()
@@ -440,21 +440,34 @@ CREATE OR REPLACE FUNCTION lazycloud_version_table()
           );
         END LOOP;
 
+        viewKeyColumns := array_cat(
+          viewKeyColumns,
+          ARRAY[
+            'lazycloud_snapshot.snapshot_number'
+          ]
+        );
+
         joinedViewKeyColumns := array_to_string(
           viewKeyColumns,
-          ','
+          ', '
         );
 
         EXECUTE 'CREATE VIEW ' || createdTable.object_identity || ' AS '
+          || 'SELECT * FROM ('
           || 'SELECT DISTINCT ON (' || joinedViewKeyColumns || ') '
           ||   internalIdentity || '.* '
           || 'FROM ' || internalIdentity || ', lazycloud_find_versions() '
-          || 'AS lazycloud_version_table '
+          ||   'AS lazycloud_version_table, lazycloud_snapshot '
           || 'WHERE ' || internalIdentity
           ||   '.lazycloud_version = lazycloud_version_table.id '
-          || 'AND ' || internalIdentity || '.lazycloud_tombstone = false '
+          || 'AND ' || internalIdentity
+          ||   '.lazycloud_snapshot <= lazycloud_snapshot.snapshot_number '
+          -- || 'AND ' || internalIdentity || '.lazycloud_tombstone = false '
+          || 'AND lazycloud_snapshot.id = 1 '
           || 'ORDER BY ' || joinedViewKeyColumns || ', '
-          ||   'lazycloud_version_table.version_order';
+          ||   'lazycloud_version_table.version_order'
+          || ') AS temp '
+          || 'WHERE temp.lazycloud_tombstone = false';
 
         EXECUTE 'CREATE TRIGGER lazycloud_trigger_' || tableName
           || ' INSTEAD OF INSERT OR DELETE OR UPDATE ON ' || tableName

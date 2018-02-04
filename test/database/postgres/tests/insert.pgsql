@@ -7,10 +7,10 @@ BEGIN;
 
   SELECT set_config('lazycloud.version_id', 'C', false);
 
-  INSERT INTO lazycloud_test_table (name) VALUES ('billy');
+  INSERT INTO lazycloud_test_table (username) VALUES ('billy');
 
   SELECT results_eq(
-    'SELECT lazycloud_version, name FROM lazycloud_test_table',
+    'SELECT lazycloud_version, username FROM lazycloud_test_table',
     $$VALUES ('C', 'billy')$$
   );
   SELECT * FROM finish();

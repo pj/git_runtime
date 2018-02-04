@@ -6,7 +6,7 @@ BEGIN;
   SELECT lazycloud_add_version('D', '{"A"}');
 
   INSERT INTO lazycloud_lazycloud_test_table
-    (test_id, name, lazycloud_version, lazycloud_snapshot)
+    (test_id, username, lazycloud_version, lazycloud_snapshot)
     VALUES
       (1, 'billy', 'A', 0),
       (2, 'robby', 'B', 0),
